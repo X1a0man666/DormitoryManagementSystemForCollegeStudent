@@ -26,11 +26,15 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
  * 学生端视图：我的宿舍 / 宿舍申请 / 我的申请。
+ * 宿舍申请支持入住、转宿、退宿、转专业换宿四类（按居住状态展示可用类型）。
  */
 public class StudentView {
 
@@ -62,18 +66,14 @@ public class StudentView {
         StudentId sid = StudentId.parseOrNull(student.getId());
         if (sid != null) {
             info.addRow(2, label("入学年份："), value(sid.getFullAdmissionYear() + " 年"));
-            info.addRow(3, label("入学学院："), value(DataCenter.instance().collegeName(sid.getCollegeCode())
-                    + "（代码 " + sid.getCollegeCode() + "）"));
-            info.addRow(4, label("专业代码："), value(String.valueOf(sid.getMajorCode())));
-            info.addRow(5, label("班级代码："), value(String.valueOf(sid.getClassCode())));
-            info.addRow(6, label("学号序号："), value(String.format("%02d", sid.getStudentNo())));
+            info.addRow(3, label("学号序号："), value(String.format("%02d", sid.getStudentNo())));
         } else {
             info.addRow(2, label("学号格式："), value("非标准 8 位学号"));
         }
 
-        info.addRow(7, label("当前学院："), value(DataCenter.instance().collegeName(student.getCollegeCode())));
-        info.addRow(8, label("当前专业："), value(student.getMajor()));
-        info.addRow(9, label("当前班级："), value(student.getClassName()));
+        info.addRow(4, label("当前学院："), value(DataCenter.instance().collegeName(student.getCollegeCode())));
+        info.addRow(5, label("当前专业："), value(student.getMajor()));
+        info.addRow(6, label("当前班级："), value(student.getClassName()));
         box.getChildren().add(info);
 
         if (student.isCheckedIn()) {
@@ -102,6 +102,9 @@ public class StudentView {
 
     // ---------- 宿舍申请 ----------
 
+    /**
+     * 宿舍申请页：按居住状态给出可用申请类型（入住 / 转宿 / 退宿 / 转专业换宿），切换类型重排表单。
+     */
     public Node buildApply() {
         VBox box = new VBox(12);
         box.setPadding(new Insets(24));
@@ -109,51 +112,251 @@ public class StudentView {
 
         Label title = new Label("宿舍申请");
         title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
-        box.getChildren().add(title);
 
+        final VBox page = new VBox(12);
+        box.getChildren().addAll(title, page);
+        renderApply(page);
+        return wrap(box);
+    }
+
+    /** 整体重绘宿舍申请页（提交后刷新状态/在办提示）。 */
+    private void renderApply(final VBox page) {
+        page.getChildren().clear();
+
+        Label statusLabel;
         if (student.isCheckedIn()) {
-            box.getChildren().add(new Label("您已入住宿舍，如需调整请使用【转移宿舍】功能（后续版本开放）。"));
-            return wrap(box);
+            statusLabel = new Label("当前状态：已入住 " + student.getCurrentBuilding() + " - " + student.getCurrentRoom());
+            statusLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+        } else {
+            statusLabel = new Label("当前状态：未入住（可提交入住申请）");
+            statusLabel.setStyle("-fx-text-fill: #7f8c8d;");
+        }
+        page.getChildren().add(statusLabel);
+
+        DormApplication inflight = findInflight();
+        if (inflight != null) {
+            Label warn = new Label("您有 1 条待审批申请（编号 " + inflight.getId() + "，类型："
+                    + inflight.getTypeName() + "）。请等待处理或先撤销后再提交。");
+            warn.setStyle("-fx-text-fill: #d35400; -fx-font-weight: bold;");
+            warn.setWrapText(true);
+            page.getChildren().add(warn);
         }
 
-        DataCenter dc = DataCenter.instance();
-        College college = dc.findCollegeByCode(student.getCollegeCode());
-        List<String> buildingNames = college == null ? java.util.Collections.<String>emptyList() : college.getBuildingNames();
-        if (buildingNames.isEmpty()) {
-            box.getChildren().add(new Label("本学院暂未分配宿舍楼栋，请联系辅导员或宿管科。"));
-            return wrap(box);
+        List<String> available = availableTypeDisplays();
+        page.getChildren().add(new Label("申请类型："));
+        final ComboBox<String> typeCombo = new ComboBox<>();
+        typeCombo.getItems().addAll(available);
+        typeCombo.setPrefWidth(220);
+
+        final VBox form = new VBox(12);
+        page.getChildren().addAll(typeCombo, form);
+
+        final boolean inFlight = inflight != null;
+        Runnable refresh = () -> renderApply(page);
+        Runnable repopulate = () -> populateApplyForm(form, keyOfDisplay(typeCombo.getValue()), inFlight, refresh);
+        typeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> repopulate.run());
+        typeCombo.getSelectionModel().selectFirst();
+        repopulate.run();
+    }
+
+    /** 依据所选类型填充申请表单。 */
+    private void populateApplyForm(final VBox form, String typeKey, boolean inFlight, Runnable refresh) {
+        form.getChildren().clear();
+        if (typeKey == null) {
+            return;
         }
+        List<Node> nodes = new ArrayList<>();
+        String typeName = typeDisplay(typeKey);
 
-        ComboBox<String> buildingCombo = new ComboBox<>();
-        buildingCombo.getItems().addAll(buildingNames);
-        buildingCombo.getSelectionModel().selectFirst();
+        if (DormApplication.TYPE_MAJOR_TRANSFER.equals(typeKey)) {
+            nodes.add(new Label("现居宿舍：" + currentDormText()));
 
-        TextArea reasonArea = new TextArea();
-        reasonArea.setPromptText("请填写申请原因（必填）");
-        reasonArea.setPrefRowCount(4);
+            ComboBox<String> classCombo = new ComboBox<>();
+            classCombo.setEditable(true);
+            classCombo.setPrefWidth(460);
+            classCombo.setPromptText("请选择转专业后的班级（可跨学院/跨届）");
+            for (String item : targetClassOptions()) {
+                classCombo.getItems().add(item);
+            }
+            Label classInfo = new Label();
+            classInfo.setWrapText(true);
+            classInfo.setStyle("-fx-text-fill: #7f8c8d;");
+            classCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+                String code = codeOfClassOption(newVal);
+                if (DormApplicationService.isRealClass(code)) {
+                    classInfo.setText("目标：学院" + DormApplicationService.collegeOfClass(code)
+                            + " · " + DormApplicationService.classLabel(code));
+                } else {
+                    classInfo.setText("");
+                }
+            });
 
-        Button submitButton = new Button("提交申请");
-        submitButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14;");
-        submitButton.setOnAction(e -> {
+            Label flow = new Label("流程说明：需先经本专业辅导员同意迁出，再由目标专业辅导员同意接收；"
+                    + "任一级拒绝即失败。跨学院转专业才需更换宿舍楼（目标学院同性别楼）。");
+            flow.setWrapText(true);
+            flow.setStyle("-fx-text-fill: #e67e22;");
+
+            TextArea reason = reasonArea();
+            Button submit = submitButton("提交转专业换宿申请", () -> {
+                applicationService.submitMajorTransfer(student, codeOfClassOption(classCombo.getValue()), reason.getText());
+                AlertUtil.info("转专业换宿申请已提交，等待本专业辅导员审批。");
+                reason.clear();
+                refresh.run();
+            }, inFlight);
+            nodes.add(new Label("转专业后的班级："));
+            nodes.add(classCombo);
+            nodes.add(classInfo);
+            nodes.add(flow);
+            nodes.add(new Label("申请原因："));
+            nodes.add(reason);
+            nodes.add(submit);
+        } else if (DormApplication.TYPE_EXIT.equals(typeKey)) {
+            nodes.add(new Label("现居宿舍：" + currentDormText()));
+            Label risk = new Label("提示：通过后将释放当前床位并将您置为未入住。");
+            risk.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            TextArea reason = reasonArea();
+            Button submit = submitButton("提交退宿申请", () -> {
+                applicationService.submitExit(student, reason.getText());
+                AlertUtil.info("退宿申请已提交，等待辅导员审批。");
+                reason.clear();
+                refresh.run();
+            }, inFlight);
+            nodes.add(risk);
+            nodes.add(new Label("申请原因："));
+            nodes.add(reason);
+            nodes.add(submit);
+        } else {
+            // 入住 / 转宿：目标楼栋 + 原因
+            if (DormApplication.TYPE_TRANSFER.equals(typeKey)) {
+                nodes.add(new Label("现居宿舍：" + currentDormText()));
+            }
+            List<String> buildings = genderBuildings();
+            ComboBox<String> buildingCombo = new ComboBox<>();
+            buildingCombo.setPrefWidth(240);
+            buildingCombo.getItems().addAll(buildings);
+            if (!buildings.isEmpty()) {
+                buildingCombo.getSelectionModel().selectFirst();
+            }
+            Label spareLabel = new Label();
+            spareLabel.setStyle("-fx-text-fill: #7f8c8d;");
+            Runnable updateSpare = () -> {
+                String b = buildingCombo.getValue();
+                spareLabel.setText(b == null ? "" : "该楼栋当前空床房间数："
+                        + DataCenter.instance().findAvailableRooms(b).size());
+            };
+            buildingCombo.valueProperty().addListener((obs, oldVal, newVal) -> updateSpare.run());
+            updateSpare.run();
+
+            TextArea reason = reasonArea();
+            String labelText = DormApplication.TYPE_APPLY.equals(typeKey)
+                    ? "提交入住申请" : "提交转宿申请";
+            Button submit = submitButton(labelText, () -> {
+                if (DormApplication.TYPE_APPLY.equals(typeKey)) {
+                    applicationService.submitApply(student, buildingCombo.getValue(), reason.getText());
+                } else {
+                    applicationService.submitTransfer(student, buildingCombo.getValue(), reason.getText());
+                }
+                AlertUtil.info(typeName + "已提交，等待辅导员审批。");
+                reason.clear();
+                refresh.run();
+            }, inFlight);
+            nodes.add(new Label("目标楼栋（本学院 · 匹配性别）："));
+            nodes.add(buildingCombo);
+            nodes.add(spareLabel);
+            nodes.add(new Label("申请原因："));
+            nodes.add(reason);
+            nodes.add(submit);
+        }
+        form.getChildren().addAll(nodes);
+    }
+
+    private String currentDormText() {
+        return student.isCheckedIn()
+                ? student.getCurrentBuilding() + " - " + student.getCurrentRoom()
+                : "未入住";
+    }
+
+    private TextArea reasonArea() {
+        TextArea reason = new TextArea();
+        reason.setPromptText("请填写申请原因（必填）");
+        reason.setPrefRowCount(4);
+        return reason;
+    }
+
+    private Button submitButton(String text, Runnable action, boolean disabled) {
+        Button submit = new Button(text);
+        submit.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14;");
+        submit.setDisable(disabled);
+        submit.setOnAction(e -> {
             try {
-                applicationService.submitApply(student, buildingCombo.getValue(), reasonArea.getText());
-                AlertUtil.info("申请提交成功，请等待辅导员审批。");
-                reasonArea.clear();
+                action.run();
             } catch (BusinessException ex) {
                 AlertUtil.error(ex.getMessage());
             }
         });
+        return submit;
+    }
 
-        HBox buttonRow = new HBox(10, submitButton);
-        buttonRow.setAlignment(Pos.CENTER_LEFT);
+    private List<String> availableTypeDisplays() {
+        List<String> list = new ArrayList<>();
+        if (student.isCheckedIn()) {
+            list.add("转宿申请");
+            list.add("退宿申请");
+            list.add("转专业换宿");
+        } else {
+            list.add("入住申请");
+        }
+        return list;
+    }
 
-        box.getChildren().addAll(
-                new Label("目标楼栋（本学院分配）："),
-                buildingCombo,
-                new Label("申请原因："),
-                reasonArea,
-                buttonRow);
-        return wrap(box);
+    private DormApplication findInflight() {
+        for (DormApplication app : applicationService.findApplicationsOfStudent(student.getId())) {
+            if (app.isPendingLike()) {
+                return app;
+            }
+        }
+        return null;
+    }
+
+    private List<String> genderBuildings() {
+        DataCenter dc = DataCenter.instance();
+        College college = dc.findCollegeByCode(student.getCollegeCode());
+        List<String> result = new ArrayList<>();
+        if (college != null) {
+            boolean male = "男".equals(student.getGender());
+            for (String name : college.getBuildingNames()) {
+                if (male == name.endsWith("A栋")) {
+                    result.add(name);
+                }
+            }
+        }
+        return result;
+    }
+
+    /** 转专业目标班级下拉候选：全校真实班级编码 - 本班，展示 "编码 ｜ 学院·专业·级·班"。 */
+    private List<String> targetClassOptions() {
+        Set<String> options = new LinkedHashSet<>();
+        for (Student s : DataCenter.instance().getStudents()) {
+            String cls = s.getClassName();
+            if (cls == null || cls.length() < 6) {
+                continue;
+            }
+            String code = cls.substring(0, 6);
+            if (code.equals(student.getClassName())) {
+                continue;
+            }
+            options.add(code + " ｜ " + DormApplicationService.classLabel(code));
+        }
+        return new ArrayList<>(options);
+    }
+
+    private String codeOfClassOption(String selection) {
+        if (selection == null) {
+            return null;
+        }
+        String trimmed = selection.trim();
+        int idx = trimmed.indexOf(" ｜");
+        return idx >= 0 ? trimmed.substring(0, idx) : trimmed;
     }
 
     // ---------- 我的申请 ----------
@@ -164,26 +367,128 @@ public class StudentView {
 
         Label title = new Label("我的申请");
         title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
-        box.getChildren().add(title);
 
-        TableView<DormApplication> table = new TableView<>();
-        table.setItems(FXCollections.observableArrayList(
-                applicationService.findApplicationsOfStudent(student.getId())));
+        ComboBox<String> filterCombo = new ComboBox<>();
+        filterCombo.getItems().addAll("全部", "待审批", "已通过", "已驳回", "已撤销");
+        filterCombo.getSelectionModel().selectFirst();
+
+        final TableView<DormApplication> table = new TableView<>();
         table.getColumns().add(col("申请编号", 110, DormApplication::getId));
-        table.getColumns().add(col("类型", 90, DormApplication::getTypeName));
-        table.getColumns().add(col("目标楼栋", 100, DormApplication::getTargetBuilding));
-        table.getColumns().add(col("分配房间", 100, a -> a.getTargetRoom() == null ? "" : a.getTargetRoom()));
+        table.getColumns().add(col("类型", 100, DormApplication::getTypeName));
+        table.getColumns().add(col("目标楼栋", 100, a -> safe(a.getTargetBuilding())));
+        table.getColumns().add(col("目标班级", 150, a -> DormApplication.TYPE_MAJOR_TRANSFER.equals(a.getType())
+                ? DormApplicationService.classLabel(a.getTargetClass()) : ""));
+        table.getColumns().add(col("原宿舍", 130, a -> originText(a)));
+        table.getColumns().add(col("分配房间", 90, a -> safe(a.getTargetRoom())));
         table.getColumns().add(col("状态", 90, DormApplication::getStatusName));
         table.getColumns().add(col("提交时间", 150, DormApplication::getCreateTime));
-        table.getColumns().add(col("审批意见", 200, a -> a.getReviewComment() == null ? "" : a.getReviewComment()));
-        table.setPrefHeight(420);
+        table.getColumns().add(col("审批意见", 180, a -> a.getReviewComment() == null ? "" : a.getReviewComment()));
+        table.setPrefHeight(360);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        box.getChildren().add(table);
+        Runnable refreshTable = () -> {
+            List<DormApplication> all = applicationService.findApplicationsOfStudent(student.getId());
+            List<DormApplication> shown = new ArrayList<>();
+            String filter = filterCombo.getValue();
+            for (DormApplication app : all) {
+                if (statusMatches(filter, app)) {
+                    shown.add(app);
+                }
+            }
+            table.setItems(FXCollections.observableArrayList(shown));
+        };
+
+        filterCombo.setOnAction(e -> refreshTable.run());
+
+        Button cancelButton = new Button("撤销选中申请");
+        cancelButton.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white;");
+        cancelButton.setOnAction(e -> {
+            DormApplication selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                AlertUtil.warn("请先在表格中选择一条申请");
+                return;
+            }
+            if (!selected.isPendingLike()) {
+                AlertUtil.warn("仅待审批（含待目标专业审批）的申请可撤销");
+                return;
+            }
+            if (AlertUtil.confirm("确定撤销申请 " + selected.getId() + "（类型：" + selected.getTypeName() + "）吗？")) {
+                try {
+                    applicationService.cancel(student, selected);
+                    AlertUtil.info("已撤销该申请。");
+                    refreshTable.run();
+                } catch (BusinessException ex) {
+                    AlertUtil.error(ex.getMessage());
+                }
+            }
+        });
+
+        Label hint = new Label("提示：待审批状态可选中后撤销；已通过/驳回/撤销的记录仅供查看。");
+        hint.setStyle("-fx-text-fill: #95a5a6;");
+
+        HBox filterRow = new HBox(10, new Label("状态筛选："), filterCombo);
+        HBox actionRow = new HBox(10, cancelButton);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
+
+        box.getChildren().addAll(title, filterRow, table, actionRow, hint);
+        refreshTable.run();
         return wrap(box);
     }
 
+    private boolean statusMatches(String filter, DormApplication app) {
+        if ("待审批".equals(filter)) {
+            return app.isPendingLike();
+        }
+        if ("已通过".equals(filter)) {
+            return DormApplication.STATUS_APPROVED.equals(app.getStatus());
+        }
+        if ("已驳回".equals(filter)) {
+            return DormApplication.STATUS_REJECTED.equals(app.getStatus());
+        }
+        if ("已撤销".equals(filter)) {
+            return DormApplication.STATUS_CANCELLED.equals(app.getStatus());
+        }
+        return true; // 全部
+    }
+
+    private String originText(DormApplication app) {
+        if (app.getOriginBuilding() == null && app.getOriginRoom() == null) {
+            return "";
+        }
+        return safe(app.getOriginBuilding()) + "-" + safe(app.getOriginRoom());
+    }
+
     // ---------- 工具 ----------
+
+    private String keyOfDisplay(String display) {
+        if ("入住申请".equals(display)) {
+            return DormApplication.TYPE_APPLY;
+        }
+        if ("转宿申请".equals(display)) {
+            return DormApplication.TYPE_TRANSFER;
+        }
+        if ("退宿申请".equals(display)) {
+            return DormApplication.TYPE_EXIT;
+        }
+        return DormApplication.TYPE_MAJOR_TRANSFER;
+    }
+
+    private String typeDisplay(String typeKey) {
+        if (DormApplication.TYPE_APPLY.equals(typeKey)) {
+            return "入住申请";
+        }
+        if (DormApplication.TYPE_TRANSFER.equals(typeKey)) {
+            return "转宿申请";
+        }
+        if (DormApplication.TYPE_EXIT.equals(typeKey)) {
+            return "退宿申请";
+        }
+        return "转专业换宿";
+    }
+
+    private String safe(String s) {
+        return s == null ? "" : s;
+    }
 
     private Label label(String text) {
         Label l = new Label(text);

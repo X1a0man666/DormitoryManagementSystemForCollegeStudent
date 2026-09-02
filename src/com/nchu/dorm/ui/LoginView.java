@@ -48,10 +48,13 @@ public class LoginView {
         Label messageLabel = new Label();
         messageLabel.setStyle("-fx-text-fill: #e74c3c;");
 
-        Label hint = new Label("演示账号：学生 24010101 / 123456 · 辅导员 counselor / 123456\n"
-                + "楼栋管理员 ld001 / 123456 · 宿管科 admin / admin123");
+        Label hint = new Label("演示账号（密码除 admin 外均为 123456）：\n"
+                + "学生 25201101（2025级软件学院）· 辅导员 counselor25201（2025级软件工程）\n"
+                + "楼栋管理员 ld001 · 宿管科 admin / admin123");
         hint.setStyle("-fx-font-size: 12; -fx-text-fill: #95a5a6;");
         hint.setAlignment(Pos.CENTER);
+        hint.setWrapText(true);
+        hint.setMaxWidth(480);
 
         GridPane form = new GridPane();
         form.setHgap(10);

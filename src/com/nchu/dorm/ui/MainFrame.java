@@ -85,7 +85,7 @@ public class MainFrame {
                 items.addAll("我的宿舍", "宿舍申请", "我的申请");
                 break;
             case RoleKey.COUNSELOR:
-                items.addAll("待审批申请");
+                items.addAll("宿舍审批");
                 break;
             case RoleKey.DORM_STAFF:
                 items.addAll("日常管理工作台");
@@ -103,7 +103,9 @@ public class MainFrame {
                 root.setCenter(buildView(newVal));
             }
         });
-        menu.getSelectionModel().selectFirst();
+        // 不要 selectFirst()：初始居中显示的是欢迎首页（buildHome）。
+        // 若预选第一项，会提前触发监听把中心设为该视图，随后 show() 里 buildHome() 又会覆盖它，
+        // 造成“菜单已选中但内容仍是首页”的不一致——此时再点该项不会触发 selection 变化事件而“没反应”。
         return menu;
     }
 
@@ -116,7 +118,7 @@ public class MainFrame {
                 return new StudentView((Student) user).buildApply();
             case "我的申请":
                 return new StudentView((Student) user).buildApplications();
-            case "待审批申请":
+            case "宿舍审批":
                 return new CounselorView((Counselor) user).build();
             case "日常管理工作台":
                 return new DormStaffView((DormStaff) user).build();

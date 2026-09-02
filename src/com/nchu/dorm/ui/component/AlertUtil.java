@@ -1,9 +1,10 @@
 package com.nchu.dorm.ui.component;
 
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 
 /**
- * 界面提示工具：统一封装信息/警告/错误弹窗。
+ * 界面提示工具：统一封装信息/警告/错误弹窗与二次确认。
  */
 public final class AlertUtil {
 
@@ -20,6 +21,15 @@ public final class AlertUtil {
 
     public static void error(String message) {
         show(Alert.AlertType.ERROR, message);
+    }
+
+    /** 二次确认弹窗：确定返回 true。 */
+    public static boolean confirm(String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("确认");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        return alert.showAndWait().filter(b -> b == ButtonType.OK).isPresent();
     }
 
     private static void show(Alert.AlertType type, String message) {
