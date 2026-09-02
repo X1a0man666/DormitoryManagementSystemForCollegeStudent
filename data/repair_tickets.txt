@@ -1,0 +1,2 @@
+# 维修工单表：id|roomKey|reporterId|description|status|createTime|handlerId|handleTime
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。

@@ -1,0 +1,13 @@
+# 编译输出
+out/
+*.class
+
+# 临时文件
+sources.tmp
+
+# IDE
+.idea/
+*.iml
+
+# 运行时日志
+*.log

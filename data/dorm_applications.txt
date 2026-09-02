@@ -1,0 +1,4 @@
+# 宿舍申请表：id|studentId|type|targetBuilding|targetRoom|reason|status|createTime|reviewerId|reviewTime|reviewComment
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。
+AP0001|24012301|APPLY|1栋||入学报到，需要安排宿舍|PENDING|2026-09-01 10:00:00|||
+AP0002|24013401|APPLY|1栋||原宿舍调整，申请入住|PENDING|2026-09-01 11:00:00|||

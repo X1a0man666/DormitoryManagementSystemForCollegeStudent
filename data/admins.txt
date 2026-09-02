@@ -1,0 +1,3 @@
+# 宿管科表：id|name|gender|phone|collegeCode|jobTitle
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。
+SK001|刘敏|女|13900000003|00|宿管科科长

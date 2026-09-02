@@ -1,0 +1,2 @@
+# 贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。

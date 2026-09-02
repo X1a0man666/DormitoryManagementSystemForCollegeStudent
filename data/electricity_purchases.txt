@@ -1,0 +1,2 @@
+# 购电记录表：id|roomKey|buyerId|degree|unitPrice|amount|createTime
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。
