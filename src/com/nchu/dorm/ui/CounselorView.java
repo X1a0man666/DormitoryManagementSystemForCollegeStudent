@@ -7,6 +7,7 @@ import com.nchu.dorm.model.application.DormApplication;
 import com.nchu.dorm.service.DormApplicationService;
 import com.nchu.dorm.storage.DataCenter;
 import com.nchu.dorm.ui.component.AlertUtil;
+import com.nchu.dorm.ui.component.UI;
 import com.nchu.dorm.util.BusinessException;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -60,7 +61,7 @@ public class CounselorView {
         box.setPadding(new Insets(24));
 
         Label title = new Label("宿舍审批（" + DataCenter.instance().collegeName(counselor.getCollegeCode()) + "）");
-        title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        UI.style(title, UI.PAGE_TITLE);
         box.getChildren().add(title);
 
         filterCombo = new ComboBox<>();
@@ -88,8 +89,8 @@ public class CounselorView {
 
         // ---- 右侧：审批面板 ----
         rightBox = new VBox(10);
-        rightBox.setPadding(new Insets(12));
-        rightBox.setStyle("-fx-background-color: #ffffff; -fx-border-color: #dfe6e9; -fx-border-radius: 6;");
+        rightBox.setPadding(new Insets(16));
+        UI.style(rightBox, UI.CARD);
         rightBox.setPrefWidth(340);
         rightBox.setFillWidth(true);
         commentArea = new TextArea();
@@ -141,14 +142,14 @@ public class CounselorView {
         rightBox.getChildren().clear();
         if (app == null) {
             Label l = new Label("请在左侧选择一条申请。");
-            l.setStyle("-fx-text-fill: #95a5a6;");
+            UI.style(l, UI.FAINT);
             rightBox.getChildren().add(l);
             return;
         }
 
         Label detail = new Label(detailText(app));
         detail.setWrapText(true);
-        detail.setStyle("-fx-text-fill: #2c3e50;");
+        UI.style(detail, UI.DETAIL);
         rightBox.getChildren().add(detail);
 
         boolean editable = "待处理".equals(filterCombo.getValue());
@@ -156,7 +157,7 @@ public class CounselorView {
             addActionControls(app);
         } else {
             Label readonly = new Label("（历史记录，仅供查看）");
-            readonly.setStyle("-fx-text-fill: #95a5a6;");
+            UI.style(readonly, UI.FAINT);
             rightBox.getChildren().add(readonly);
         }
 
@@ -172,14 +173,14 @@ public class CounselorView {
         if (DormApplication.TYPE_MAJOR_TRANSFER.equals(type)) {
             if (DormApplication.STATUS_PENDING.equals(status)) {
                 Label l = new Label("作为本专业辅导员：同意后该申请将流转至目标专业辅导员接收。");
-                l.setStyle("-fx-text-fill: #e67e22;");
+                UI.style(l, UI.WARN);
                 l.setWrapText(true);
                 rightBox.getChildren().add(l);
                 rightBox.getChildren().add(buttonRow(button("同意迁出", "#27ae60", e -> doMajorMoveOut(app)),
                         button("驳回申请", "#e74c3c", e -> doReject(app))));
             } else if (DormApplication.STATUS_AWAITING_TARGET.equals(status)) {
                 Label l = new Label("本专业辅导员已同意迁出，现由您（目标专业辅导员）接收。");
-                l.setStyle("-fx-text-fill: #2c3e50;");
+                UI.style(l, UI.INK);
                 l.setWrapText(true);
                 rightBox.getChildren().add(l);
 
@@ -199,7 +200,7 @@ public class CounselorView {
                 } else {
                     Label noMove = new Label("目标学院与当前学院相同，不更换宿舍，仅更新专业/班级档案。");
                     noMove.setWrapText(true);
-                    noMove.setStyle("-fx-text-fill: #7f8c8d;");
+                    UI.style(noMove, UI.MUTED);
                     rightBox.getChildren().add(noMove);
                 }
                 rightBox.getChildren().add(buttonRow(
@@ -211,7 +212,7 @@ public class CounselorView {
 
         if (DormApplication.TYPE_EXIT.equals(type)) {
             Label risk = new Label("通过后将释放该生当前床位并置为未入住。");
-            risk.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            UI.style(risk, UI.DANGER);
             risk.setWrapText(true);
             rightBox.getChildren().add(risk);
             rightBox.getChildren().add(buttonRow(button("通过并退宿", "#27ae60", e -> doApproveExit(app)),
@@ -395,7 +396,7 @@ public class CounselorView {
 
     private Button button(String text, String color, javafx.event.EventHandler<javafx.event.ActionEvent> handler) {
         Button b = new Button(text);
-        b.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white;");
+        UI.style(b, UI.BTN, UI.variantClass(color));
         b.setOnAction(handler);
         return b;
     }
@@ -414,7 +415,7 @@ public class CounselorView {
     private Node wrap(VBox box) {
         ScrollPane sp = new ScrollPane(box);
         sp.setFitToWidth(true);
-        sp.setStyle("-fx-background: #f8f9fa;");
+        UI.style(sp, UI.PAGE_SCROLL);
         return sp;
     }
 }

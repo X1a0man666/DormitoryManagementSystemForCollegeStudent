@@ -26,6 +26,9 @@ public class Room {
     /** 床位列表 */
     private final List<Bed> beds = new ArrayList<>();
 
+    /** 房间电表可用电量（度）。购电售出后增加；初始为 0，见 seed。 */
+    private double electricityBalance;
+
     public Room() {
     }
 
@@ -73,6 +76,19 @@ public class Room {
 
     public List<Bed> getBeds() {
         return beds;
+    }
+
+    public double getElectricityBalance() {
+        return electricityBalance;
+    }
+
+    public void setElectricityBalance(double electricityBalance) {
+        this.electricityBalance = electricityBalance;
+    }
+
+    /** 售电到账：给房间电表增加电量（度）。 */
+    public void creditElectricity(double degree) {
+        this.electricityBalance += degree;
     }
 
     /** 空床数量 */
@@ -127,7 +143,7 @@ public class Room {
         return buildingName + "-" + roomNo;
     }
 
-    /** 文本序列化：buildingName|roomNo|floor|capacity|床位号=学生号;床位号=学生号 */
+    /** 文本序列化：buildingName|roomNo|floor|capacity|床位号=学生号;床位号=学生号|electricityBalance */
     public String toLine() {
         StringBuilder sb = new StringBuilder();
         sb.append(TextUtil.escape(buildingName)).append("|")
@@ -142,6 +158,7 @@ public class Room {
             first = false;
             sb.append(b.getBedNo()).append("=").append(TextUtil.escape(b.getOccupantId()));
         }
+        sb.append("|").append(electricityBalance);
         return sb.toString();
     }
 
@@ -167,6 +184,14 @@ public class Room {
                 if (bedNo >= 1 && bedNo <= r.beds.size()) {
                     r.beds.get(bedNo - 1).setOccupantId(occupant.isEmpty() ? null : occupant);
                 }
+            }
+        }
+        // 迭代五新增列：旧 5 列房间数据向后兼容（余额缺省 0）
+        if (f.length > 5) {
+            try {
+                r.electricityBalance = Double.parseDouble(f[5]);
+            } catch (NumberFormatException ignored) {
+                r.electricityBalance = 0;
             }
         }
         return r;

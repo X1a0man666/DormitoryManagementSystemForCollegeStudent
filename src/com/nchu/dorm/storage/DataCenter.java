@@ -2,6 +2,7 @@ package com.nchu.dorm.storage;
 
 import com.nchu.dorm.model.Account;
 import com.nchu.dorm.model.Admin;
+import com.nchu.dorm.model.Bed;
 import com.nchu.dorm.model.Building;
 import com.nchu.dorm.model.College;
 import com.nchu.dorm.model.Counselor;
@@ -56,14 +57,17 @@ public class DataCenter {
 
     // ==================== 全量数据生成参数（课程设定，可整体调整） ====================
 
-    /** 需创建账号的入学年份 */
-    private static final int[] ADMISSION_YEARS = {2024, 2025};
+    /** 需创建账号的入学年份（23、24、25、26 四届） */
+    private static final int[] ADMISSION_YEARS = {2023, 2024, 2025, 2026};
 
     /** 每学院专业数 */
     private static final int MAJORS_PER_COLLEGE = 4;
 
-    /** 每专业班级数 */
+    /** 每专业默认班级数（软件工程例外见 SOFTWARE_ENGINEERING_CLASSES） */
     private static final int CLASSES_PER_MAJOR = 4;
+
+    /** 软件工程专业（软件学院代码 20 的第 1 个专业）每届班级数：按需求由 4 班扩为 9 班 */
+    private static final int SOFTWARE_ENGINEERING_CLASSES = 9;
 
     /** 每班学生数 */
     private static final int STUDENTS_PER_CLASS = 40;
@@ -79,6 +83,7 @@ public class DataCenter {
      * 分类决定男女配比：文学院每班 32 女 + 8 男，理学院每班 8 女 + 32 男（女学号在前）。
      * 专业顺序即专业代码 1-4；软件学院（20）第 1 个专业为软件工程 → 专业代码 1，
      * 其专业年级代码为 25201（25级+20学院+1专业），辅导员账号 counselor25201。
+     * 班级数例外：软件工程每届 9 班（见 SOFTWARE_ENGINEERING_CLASSES），其余专业默认 4 班。
      */
     private static final String[][] COLLEGE_MAJORS = {
             {"01", "材料科学与工程学院", "理", "金属材料工程", "材料成型及控制工程", "焊接技术与工程", "高分子材料与工程"},
@@ -160,8 +165,8 @@ public class DataCenter {
     public void saveAll() {
         try {
             save(FILE_COLLEGES, "学院表：code|name|楼栋1;楼栋2", colleges, College::toLine);
-            save(FILE_BUILDINGS, "楼栋表：name|alias|collegeCode|managerId|floorCount|hasBathroom", buildings, Building::toLine);
-            save(FILE_ROOMS, "房间表：buildingName|roomNo|floor|capacity|床位号=学号;床位号=学号", rooms, Room::toLine);
+            save(FILE_BUILDINGS, "楼栋表：name|alias|collegeCode|managerId|floorCount|hasBathroom|gender", buildings, Building::toLine);
+            save(FILE_ROOMS, "房间表：buildingName|roomNo|floor|capacity|床位号=学号;床位号=学号|electricityBalance", rooms, Room::toLine);
             save(FILE_STUDENTS, "学生表：id|name|gender|phone|collegeCode|major|className|currentBuilding|currentRoom", students, Student::toLine);
             save(FILE_COUNSELORS, "辅导员表：id|name|gender|phone|collegeCode|jobTitle", counselors, Counselor::toLine);
             save(FILE_DORM_STAFFS, "宿舍管理人员表：id|name|gender|phone|collegeCode|jobTitle|负责楼栋;楼栋", dormStaffs, DormStaff::toLine);
@@ -172,7 +177,7 @@ public class DataCenter {
             save(FILE_HYGIENE, "卫生检查表：id|roomKey|date|score|inspectorId|comment", hygieneRecords, HygieneRecord::toLine);
             save(FILE_VALUABLES, "贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId", valuablesRecords, ValuablesRecord::toLine);
             save(FILE_REPAIRS, "维修工单表：id|roomKey|reporterId|description|status|createTime|handlerId|handleTime", repairTickets, RepairTicket::toLine);
-            save(FILE_ELECTRICITY, "购电记录表：id|roomKey|buyerId|degree|unitPrice|amount|createTime", electricityPurchases, ElectricityPurchase::toLine);
+            save(FILE_ELECTRICITY, "购电记录表：id|roomKey|buyerId|degree|unitPrice|amount|createTime|status|handlerId|handleTime", electricityPurchases, ElectricityPurchase::toLine);
         } catch (IOException e) {
             throw new IllegalStateException("数据保存失败：" + e.getMessage(), e);
         }
@@ -299,6 +304,15 @@ public class DataCenter {
         return null;
     }
 
+    public DormStaff findDormStaffById(String id) {
+        for (DormStaff d : dormStaffs) {
+            if (d.getId().equals(id)) {
+                return d;
+            }
+        }
+        return null;
+    }
+
     public College findCollegeByCode(String code) {
         for (College c : colleges) {
             if (c.getCode().equals(code)) {
@@ -338,6 +352,21 @@ public class DataCenter {
             }
         }
         return null;
+    }
+
+    /**
+     * 按"楼栋-房间"组合键（{@link Room#displayKey()}）查房间。
+     * 楼栋名不含 '-'，故按键中第一个 '-' 切分楼栋与房号。
+     */
+    public Room findRoomByKey(String key) {
+        if (key == null) {
+            return null;
+        }
+        int dash = key.indexOf('-');
+        if (dash <= 0 || dash >= key.length() - 1) {
+            return null;
+        }
+        return findRoom(key.substring(0, dash), key.substring(dash + 1));
     }
 
     public List<Room> findRoomsOfBuilding(String buildingName) {
@@ -382,6 +411,33 @@ public class DataCenter {
         return null;
     }
 
+    /** 尚未分配给任何学院的楼栋（宿管科"楼栋分配"可分配的候选）。 */
+    public List<Building> findBuildingsUnassigned() {
+        List<Building> result = new ArrayList<>();
+        for (Building b : buildings) {
+            if (b.getCollegeCode() == null || b.getCollegeCode().isEmpty()) {
+                result.add(b);
+            }
+        }
+        return result;
+    }
+
+    /** 某楼栋当前入住人数（遍历房间床位统计）。 */
+    public int occupiedCountOfBuilding(String buildingName) {
+        int count = 0;
+        for (Room r : rooms) {
+            if (!buildingName.equals(r.getBuildingName())) {
+                continue;
+            }
+            for (Bed bed : r.getBeds()) {
+                if (!bed.isEmpty()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
     // ==================== 编号生成 ====================
 
     private <T> int maxSuffix(List<T> items, Function<T, String> idGetter, String prefix) {
@@ -423,12 +479,17 @@ public class DataCenter {
         return "VA" + String.format("%04d", maxSuffix(valuablesRecords, ValuablesRecord::getId, "VA") + 1);
     }
 
+    /** 下一个宿舍管理人员工号（如 LD002）。 */
+    public String nextDormStaffId() {
+        return "LD" + String.format("%03d", maxSuffix(dormStaffs, DormStaff::getId, "LD") + 1);
+    }
+
     // ==================== 首次运行演示数据 ====================
 
     /**
      * 生成初始全量数据。
-     * 依据课程设定：每学院 4 专业 × 每专业 4 班 × 每班 40 人，覆盖 2024、2025 两届；
-     * 宿舍按"每学院 A=男 / B=女 两栋，每层 45 间、每间 4 人，按学号顺序排宿"。
+     * 依据课程设定：每学院 4 专业 × 每专业 4 班（软件学院·软件工程 9 班）× 每班 40 人，
+     * 覆盖 2023、2024、2025、2026 四届；宿舍按"每学院 A=男 / B=女 两栋，每层 45 间、每间 4 人，按学号顺序排宿"。
      */
     private void seedPreset() {
         seedColleges();
@@ -480,7 +541,10 @@ public class DataCenter {
                 int yearCode = year % 100; // StudentId 只存年份后两位
                 for (int majorCode = 1; majorCode <= MAJORS_PER_COLLEGE; majorCode++) {
                     String majorName = row[2 + majorCode]; // row[3..6] 为专业1..4
-                    for (int classCode = 1; classCode <= CLASSES_PER_MAJOR; classCode++) {
+                    // 课程设定：软件学院(20) 的软件工程专业每届 9 班，其余专业默认 4 班
+                    int classTotal = ("20".equals(collegeCode) && "软件工程".equals(majorName))
+                            ? SOFTWARE_ENGINEERING_CLASSES : CLASSES_PER_MAJOR;
+                    for (int classCode = 1; classCode <= classTotal; classCode++) {
                         for (int no = 1; no <= STUDENTS_PER_CLASS; no++) {
                             String gender = no <= girlsPerClass ? "女" : "男";
                             String id = StudentId.of(yearCode, collegeCode, majorCode, classCode, no);
@@ -493,11 +557,15 @@ public class DataCenter {
         }
     }
 
-    /** 宿管科、宿舍管理人员（演示账号保留）。 */
+    /** 宿管科、宿舍管理人员（演示账号保留）。两名宿舍管理员分别分管 01、02 学院楼栋。 */
     private void seedDormStaffAndAdmin() {
         DormStaff dormStaff = new DormStaff("LD001", "李芳", "女", "13900000002", "00", "楼栋管理员");
         dormStaff.getManageBuildingNames().addAll(Arrays.asList("01A栋", "01B栋"));
         dormStaffs.add(dormStaff);
+
+        DormStaff dormStaff2 = new DormStaff("LD002", "王强", "男", "13900000005", "00", "楼栋管理员");
+        dormStaff2.getManageBuildingNames().addAll(Arrays.asList("02A栋", "02B栋"));
+        dormStaffs.add(dormStaff2);
 
         admins.add(new Admin("SK001", "刘敏", "女", "13900000003", "00", "宿管科科长"));
     }
@@ -521,12 +589,17 @@ public class DataCenter {
             addBuildingAndAssign(collegeCode, collegeCode + "A栋", males);
             addBuildingAndAssign(collegeCode, collegeCode + "B栋", females);
         }
+        // 两栋"未分配"的备用空楼（性别显式标注），供宿管科「楼栋分配」演示划拨给学院。
+        addEmptyBuilding("天骄苑1栋", "男", 3);
+        addEmptyBuilding("天骄苑2栋", "女", 3);
     }
 
     /** 为某性别的宿舍楼建楼并逐层逐间排宿：房间号=层*100+本层序号(1..45)，床位 1..4。 */
     private void addBuildingAndAssign(String collegeCode, String buildingName, List<Student> occupants) {
         int floors = neededFloors(occupants.size());
-        buildings.add(new Building(buildingName, "", collegeCode, "", floors, true));
+        Building building = new Building(buildingName, "", collegeCode, "", floors, true);
+        building.setGender(occupants.isEmpty() ? "" : ("男".equals(occupants.get(0).getGender()) ? "男" : "女"));
+        buildings.add(building);
         int idx = 0;
         for (int f = 1; f <= floors; f++) {
             for (int n = 1; n <= ROOMS_PER_FLOOR; n++) {
@@ -544,6 +617,19 @@ public class DataCenter {
         }
     }
 
+    /** 建一栋完全空置的宿舍楼（未分配学院、无入住学生），房间照常生成（初始电表为 0）。 */
+    private void addEmptyBuilding(String name, String gender, int floors) {
+        Building building = new Building(name, "", "", "", floors, true);
+        building.setGender(gender);
+        buildings.add(building);
+        for (int f = 1; f <= floors; f++) {
+            for (int n = 1; n <= ROOMS_PER_FLOOR; n++) {
+                String roomNo = "" + (f * 100 + n);
+                rooms.add(new Room(name, roomNo, f, BEDS_PER_ROOM));
+            }
+        }
+    }
+
     /** 依该性别总人数计算宿舍楼层数：ceil(ceil(n/4)/45)。 */
     private int neededFloors(int studentCount) {
         int rooms = (studentCount + BEDS_PER_ROOM - 1) / BEDS_PER_ROOM;
@@ -552,7 +638,10 @@ public class DataCenter {
 
     private void seedAccounts() {
         accounts.add(new Account("admin", "admin123", "SK001", RoleKey.ADMIN));
-        accounts.add(new Account("ld001", "123456", "LD001", RoleKey.DORM_STAFF));
+        for (DormStaff d : dormStaffs) {
+            // 宿舍管理人员的登录账号 = 工号小写（如 LD001 → ld001），默认密码 123456
+            accounts.add(new Account(d.getId().toLowerCase(), "123456", d.getId(), RoleKey.DORM_STAFF));
+        }
         for (Student s : students) {
             accounts.add(new Account(s.getId(), "123456", s.getId(), RoleKey.STUDENT));
         }

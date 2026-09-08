@@ -1,0 +1,2 @@
+# 卫生检查表：id|roomKey|date|score|inspectorId|comment
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。

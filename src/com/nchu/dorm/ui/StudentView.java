@@ -1,15 +1,22 @@
 package com.nchu.dorm.ui;
 
 import com.nchu.dorm.model.Bed;
+import com.nchu.dorm.model.Building;
 import com.nchu.dorm.model.College;
 import com.nchu.dorm.model.Room;
 import com.nchu.dorm.model.Student;
 import com.nchu.dorm.model.StudentId;
 import com.nchu.dorm.model.application.DormApplication;
+import com.nchu.dorm.model.application.ElectricityPurchase;
+import com.nchu.dorm.model.application.RepairTicket;
 import com.nchu.dorm.service.DormApplicationService;
+import com.nchu.dorm.service.ElectricityService;
+import com.nchu.dorm.service.RepairService;
 import com.nchu.dorm.storage.DataCenter;
 import com.nchu.dorm.ui.component.AlertUtil;
+import com.nchu.dorm.ui.component.UI;
 import com.nchu.dorm.util.BusinessException;
+import com.nchu.dorm.util.FormatUtil;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -22,6 +29,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -33,8 +41,9 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * 学生端视图：我的宿舍 / 宿舍申请 / 我的申请。
- * 宿舍申请支持入住、转宿、退宿、转专业换宿四类（按居住状态展示可用类型）。
+ * 学生端视图：我的宿舍 / 宿舍申请 / 我的申请 / 购电 / 维修报修。
+ * 宿舍申请支持入住、转宿、退宿、转专业换宿四类（按居住状态展示可用类型）；
+ * 购电、维修报修为"学生提交 → 宿管科处理"的业务闭环（迭代五）。
  */
 public class StudentView {
 
@@ -53,7 +62,7 @@ public class StudentView {
         box.setMaxWidth(720);
 
         Label title = new Label("我的宿舍");
-        title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        UI.style(title, UI.PAGE_TITLE);
         box.getChildren().add(title);
 
         GridPane info = new GridPane();
@@ -78,11 +87,14 @@ public class StudentView {
 
         if (student.isCheckedIn()) {
             Label dormLabel = new Label("当前入住：" + student.getCurrentBuilding() + " - " + student.getCurrentRoom());
-            dormLabel.setStyle("-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #27ae60;");
+            UI.style(dormLabel, UI.OK);
+            dormLabel.setStyle("-fx-font-size: 14px;");
             box.getChildren().add(dormLabel);
 
             Room room = DataCenter.instance().findRoom(student.getCurrentBuilding(), student.getCurrentRoom());
             if (room != null) {
+                box.getChildren().add(new Label("房间电表剩余电量："
+                        + FormatUtil.num(room.getElectricityBalance()) + " 度（如需购电请到【购电】页）"));
                 box.getChildren().add(new Label("室友信息："));
                 for (Bed bed : room.getBeds()) {
                     if (!bed.isEmpty()) {
@@ -111,7 +123,7 @@ public class StudentView {
         box.setMaxWidth(720);
 
         Label title = new Label("宿舍申请");
-        title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        UI.style(title, UI.PAGE_TITLE);
 
         final VBox page = new VBox(12);
         box.getChildren().addAll(title, page);
@@ -126,10 +138,10 @@ public class StudentView {
         Label statusLabel;
         if (student.isCheckedIn()) {
             statusLabel = new Label("当前状态：已入住 " + student.getCurrentBuilding() + " - " + student.getCurrentRoom());
-            statusLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+            UI.style(statusLabel, UI.OK);
         } else {
             statusLabel = new Label("当前状态：未入住（可提交入住申请）");
-            statusLabel.setStyle("-fx-text-fill: #7f8c8d;");
+            UI.style(statusLabel, UI.MUTED);
         }
         page.getChildren().add(statusLabel);
 
@@ -137,7 +149,7 @@ public class StudentView {
         if (inflight != null) {
             Label warn = new Label("您有 1 条待审批申请（编号 " + inflight.getId() + "，类型："
                     + inflight.getTypeName() + "）。请等待处理或先撤销后再提交。");
-            warn.setStyle("-fx-text-fill: #d35400; -fx-font-weight: bold;");
+            UI.style(warn, UI.WARN_DEEP);
             warn.setWrapText(true);
             page.getChildren().add(warn);
         }
@@ -180,7 +192,7 @@ public class StudentView {
             }
             Label classInfo = new Label();
             classInfo.setWrapText(true);
-            classInfo.setStyle("-fx-text-fill: #7f8c8d;");
+            UI.style(classInfo, UI.MUTED);
             classCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
                 String code = codeOfClassOption(newVal);
                 if (DormApplicationService.isRealClass(code)) {
@@ -194,7 +206,7 @@ public class StudentView {
             Label flow = new Label("流程说明：需先经本专业辅导员同意迁出，再由目标专业辅导员同意接收；"
                     + "任一级拒绝即失败。跨学院转专业才需更换宿舍楼（目标学院同性别楼）。");
             flow.setWrapText(true);
-            flow.setStyle("-fx-text-fill: #e67e22;");
+            UI.style(flow, UI.WARN);
 
             TextArea reason = reasonArea();
             Button submit = submitButton("提交转专业换宿申请", () -> {
@@ -213,7 +225,7 @@ public class StudentView {
         } else if (DormApplication.TYPE_EXIT.equals(typeKey)) {
             nodes.add(new Label("现居宿舍：" + currentDormText()));
             Label risk = new Label("提示：通过后将释放当前床位并将您置为未入住。");
-            risk.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            UI.style(risk, UI.DANGER);
             TextArea reason = reasonArea();
             Button submit = submitButton("提交退宿申请", () -> {
                 applicationService.submitExit(student, reason.getText());
@@ -238,7 +250,7 @@ public class StudentView {
                 buildingCombo.getSelectionModel().selectFirst();
             }
             Label spareLabel = new Label();
-            spareLabel.setStyle("-fx-text-fill: #7f8c8d;");
+            UI.style(spareLabel, UI.MUTED);
             Runnable updateSpare = () -> {
                 String b = buildingCombo.getValue();
                 spareLabel.setText(b == null ? "" : "该楼栋当前空床房间数："
@@ -285,7 +297,7 @@ public class StudentView {
 
     private Button submitButton(String text, Runnable action, boolean disabled) {
         Button submit = new Button(text);
-        submit.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14;");
+        UI.style(submit, UI.BTN, UI.BTN_PRIMARY);
         submit.setDisable(disabled);
         submit.setOnAction(e -> {
             try {
@@ -325,7 +337,9 @@ public class StudentView {
         if (college != null) {
             boolean male = "男".equals(student.getGender());
             for (String name : college.getBuildingNames()) {
-                if (male == name.endsWith("A栋")) {
+                Building b = dc.findBuilding(name);
+                boolean maleBuilding = b != null ? b.isMale() : name.endsWith("A栋");
+                if (male == maleBuilding) {
                     result.add(name);
                 }
             }
@@ -366,7 +380,7 @@ public class StudentView {
         box.setPadding(new Insets(24));
 
         Label title = new Label("我的申请");
-        title.setStyle("-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        UI.style(title, UI.PAGE_TITLE);
 
         ComboBox<String> filterCombo = new ComboBox<>();
         filterCombo.getItems().addAll("全部", "待审批", "已通过", "已驳回", "已撤销");
@@ -401,7 +415,7 @@ public class StudentView {
         filterCombo.setOnAction(e -> refreshTable.run());
 
         Button cancelButton = new Button("撤销选中申请");
-        cancelButton.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white;");
+        UI.style(cancelButton, UI.BTN, UI.BTN_WARNING);
         cancelButton.setOnAction(e -> {
             DormApplication selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
@@ -424,7 +438,7 @@ public class StudentView {
         });
 
         Label hint = new Label("提示：待审批状态可选中后撤销；已通过/驳回/撤销的记录仅供查看。");
-        hint.setStyle("-fx-text-fill: #95a5a6;");
+        UI.style(hint, UI.FAINT);
 
         HBox filterRow = new HBox(10, new Label("状态筛选："), filterCombo);
         HBox actionRow = new HBox(10, cancelButton);
@@ -456,6 +470,164 @@ public class StudentView {
             return "";
         }
         return safe(app.getOriginBuilding()) + "-" + safe(app.getOriginRoom());
+    }
+
+    // ---------- 购电 ----------
+
+    /** 购电页：为本人当前房间购电，宿管科售电后到账。 */
+    public Node buildElectricity() {
+        VBox box = new VBox(12);
+        box.setPadding(new Insets(24));
+        Label title = new Label("购电（电费充值）");
+        UI.style(title, UI.PAGE_TITLE);
+        box.getChildren().add(title);
+
+        final VBox body = new VBox(12);
+        box.getChildren().add(body);
+        renderElectricity(body);
+        return wrap(box);
+    }
+
+    private void renderElectricity(final VBox body) {
+        body.getChildren().clear();
+        final ElectricityService service = new ElectricityService();
+
+        if (!student.isCheckedIn()) {
+            Label note = new Label("您尚未入住宿舍，无法购电。请先在【宿舍申请】办理入住。");
+            UI.style(note, UI.DANGER);
+            body.getChildren().add(note);
+            return;
+        }
+
+        DataCenter dc = DataCenter.instance();
+        Room room = dc.findRoom(student.getCurrentBuilding(), student.getCurrentRoom());
+        Label status = new Label("购电房间：" + student.getCurrentBuilding() + " - " + student.getCurrentRoom()
+                + "　　· 房间剩余电量：" + FormatUtil.num(room == null ? 0 : room.getElectricityBalance()) + " 度"
+                + "　　· 单价：" + FormatUtil.money(ElectricityService.UNIT_PRICE) + " 元/度");
+        UI.style(status, UI.SECTION);
+        body.getChildren().add(status);
+
+        // ---- 购电表单 ----
+        final TextField degreeField = new TextField();
+        degreeField.setPromptText("请输入购电度数，如 200");
+        degreeField.setPrefWidth(220);
+        final Label amountLabel = new Label("预计金额：-- 元");
+        UI.style(amountLabel, UI.MUTED);
+        degreeField.textProperty().addListener((obs, oldVal, newVal) -> {
+            try {
+                double d = Double.parseDouble(newVal.trim());
+                amountLabel.setText("预计金额：" + FormatUtil.money(Math.round(d * ElectricityService.UNIT_PRICE * 100) / 100.0) + " 元");
+            } catch (NumberFormatException ex) {
+                amountLabel.setText("预计金额：-- 元");
+            }
+        });
+
+        Button submit = new Button("提交购电申请");
+        UI.style(submit, UI.BTN, UI.BTN_PRIMARY);
+        submit.setOnAction(e -> {
+            try {
+                double degree = Double.parseDouble(degreeField.getText().trim());
+                service.submitPurchase(student, degree);
+                AlertUtil.info("购电申请已提交，请到宿管科售电窗口缴费，到账后将计入房间电表。");
+                degreeField.clear();
+                renderElectricity(body);
+            } catch (NumberFormatException ex) {
+                AlertUtil.error("请输入有效的购电度数（数字）");
+            } catch (BusinessException ex) {
+                AlertUtil.error(ex.getMessage());
+            }
+        });
+
+        HBox formRow = new HBox(10, new Label("购电度数："), degreeField, submit);
+        formRow.setAlignment(Pos.CENTER_LEFT);
+        Label hint = new Label("提示：提交后状态为「待售电」，宿管科售电后方计入房间剩余电量。");
+        UI.style(hint, UI.FAINT);
+        body.getChildren().addAll(formRow, amountLabel, hint);
+
+        // ---- 我的购电记录 ----
+        Label recTitle = new Label("我的购电记录");
+        UI.style(recTitle, UI.SECTION);
+        body.getChildren().add(recTitle);
+
+        TableView<ElectricityPurchase> table = new TableView<>();
+        table.getColumns().add(col("单号", 90, ElectricityPurchase::getId));
+        table.getColumns().add(col("房间", 110, ElectricityPurchase::getRoomKey));
+        table.getColumns().add(col("购电(度)", 90, p -> FormatUtil.num(p.getDegree())));
+        table.getColumns().add(col("应付(元)", 90, p -> FormatUtil.money(p.getAmount())));
+        table.getColumns().add(col("状态", 90, ElectricityPurchase::getStatusName));
+        table.getColumns().add(col("提交时间", 150, ElectricityPurchase::getCreateTime));
+        table.getColumns().add(col("售电时间", 150, p -> safe(p.getHandleTime())));
+        table.getColumns().add(col("经办", 90, p -> safe(p.getHandlerId())));
+        table.setPrefHeight(300);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setItems(FXCollections.observableArrayList(service.ofStudent(student.getId())));
+        body.getChildren().add(table);
+    }
+
+    // ---------- 维修报修 ----------
+
+    /** 维修报修页：为本人当前房间报修，宿管科受理/办结。 */
+    public Node buildRepair() {
+        VBox box = new VBox(12);
+        box.setPadding(new Insets(24));
+        Label title = new Label("维修报修");
+        UI.style(title, UI.PAGE_TITLE);
+        box.getChildren().add(title);
+
+        final VBox body = new VBox(12);
+        box.getChildren().add(body);
+        renderRepair(body);
+        return wrap(box);
+    }
+
+    private void renderRepair(final VBox body) {
+        body.getChildren().clear();
+        final RepairService service = new RepairService();
+
+        if (!student.isCheckedIn()) {
+            Label note = new Label("您尚未入住宿舍，无法报修。请先在【宿舍申请】办理入住。");
+            UI.style(note, UI.DANGER);
+            body.getChildren().add(note);
+            return;
+        }
+
+        Label status = new Label("报修房间：" + student.getCurrentBuilding() + " - " + student.getCurrentRoom());
+        UI.style(status, UI.SECTION);
+        body.getChildren().add(status);
+
+        final TextArea desc = new TextArea();
+        desc.setPromptText("请描述需要维修的问题（如：灯管不亮、空调不制冷、门锁损坏…）");
+        desc.setPrefRowCount(4);
+        Button submit = new Button("提交报修单");
+        UI.style(submit, UI.BTN, UI.BTN_WARNING);
+        submit.setOnAction(e -> {
+            try {
+                service.submitRepair(student, desc.getText());
+                AlertUtil.info("报修单已提交，等待宿管科安排维修。");
+                desc.clear();
+                renderRepair(body);
+            } catch (BusinessException ex) {
+                AlertUtil.error(ex.getMessage());
+            }
+        });
+        body.getChildren().addAll(new Label("维修内容："), desc, submit);
+
+        Label recTitle = new Label("我的报修记录");
+        UI.style(recTitle, UI.SECTION);
+        body.getChildren().add(recTitle);
+
+        TableView<RepairTicket> table = new TableView<>();
+        table.getColumns().add(col("单号", 90, RepairTicket::getId));
+        table.getColumns().add(col("房间", 100, RepairTicket::getRoomKey));
+        table.getColumns().add(col("维修内容", 240, RepairTicket::getDescription));
+        table.getColumns().add(col("状态", 90, RepairTicket::getStatusName));
+        table.getColumns().add(col("提交时间", 150, RepairTicket::getCreateTime));
+        table.getColumns().add(col("处理人", 100, t -> safe(t.getHandlerId())));
+        table.getColumns().add(col("处理时间", 150, t -> safe(t.getHandleTime())));
+        table.setPrefHeight(280);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setItems(FXCollections.observableArrayList(service.ofStudent(student.getId())));
+        body.getChildren().add(table);
     }
 
     // ---------- 工具 ----------
@@ -492,7 +664,7 @@ public class StudentView {
 
     private Label label(String text) {
         Label l = new Label(text);
-        l.setStyle("-fx-text-fill: #7f8c8d;");
+        UI.style(l, UI.KEY);
         return l;
     }
 
@@ -510,7 +682,7 @@ public class StudentView {
     private Node wrap(VBox box) {
         ScrollPane sp = new ScrollPane(box);
         sp.setFitToWidth(true);
-        sp.setStyle("-fx-background: #f8f9fa;");
+        UI.style(sp, UI.PAGE_SCROLL);
         return sp;
     }
 }

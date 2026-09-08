@@ -5,6 +5,7 @@ import javafx.scene.control.ButtonType;
 
 /**
  * 界面提示工具：统一封装信息/警告/错误弹窗与二次确认。
+ * 弹窗为独立窗口，构造后需注入全局主题样式。
  */
 public final class AlertUtil {
 
@@ -29,6 +30,7 @@ public final class AlertUtil {
         alert.setTitle("确认");
         alert.setHeaderText(null);
         alert.setContentText(message);
+        UI.applyToDialog(alert.getDialogPane());
         return alert.showAndWait().filter(b -> b == ButtonType.OK).isPresent();
     }
 
@@ -38,6 +40,7 @@ public final class AlertUtil {
                 : type == Alert.AlertType.WARNING ? "警告" : "提示");
         alert.setHeaderText(null);
         alert.setContentText(message);
+        UI.applyToDialog(alert.getDialogPane());
         alert.showAndWait();
     }
 }

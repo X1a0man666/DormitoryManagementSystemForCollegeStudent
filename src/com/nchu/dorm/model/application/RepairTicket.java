@@ -118,6 +118,17 @@ public class RepairTicket {
         this.handleTime = handleTime;
     }
 
+    /** 状态中文名 */
+    public String getStatusName() {
+        if (STATUS_PROCESSING.equals(status)) {
+            return "处理中";
+        }
+        if (STATUS_DONE.equals(status)) {
+            return "已完成";
+        }
+        return "待处理";
+    }
+
     public String toLine() {
         return TextUtil.escape(id) + "|"
                 + TextUtil.escape(roomKey) + "|"

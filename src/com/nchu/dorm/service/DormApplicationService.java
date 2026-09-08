@@ -123,12 +123,19 @@ public class DormApplicationService {
         String targetCollege = collegeOfClass(targetClass);
         String targetBuilding = null;
         if (!targetCollege.equals(student.getCollegeCode())) {
-            // 跨学院转专业：需搬迁到目标学院同性别楼
-            targetBuilding = genderBuildingOf(targetCollege, student.getGender());
-            Building building = findBuilding(targetBuilding);
-            if (building == null || !targetCollege.equals(building.getCollegeCode())) {
-                throw new BusinessException("目标学院暂未分配该性别宿舍楼");
+            // 跨学院转专业：需搬迁到目标学院同性别楼（从目标学院名下已分配楼栋中按性别挑选有空床的）
+            boolean male = "男".equals(student.getGender());
+            Building chosen = null;
+            for (Building b : dc().findBuildingsOfCollege(targetCollege)) {
+                if (male == b.isMale() && !dc().findAvailableRooms(b.getName()).isEmpty()) {
+                    chosen = b;
+                    break;
+                }
             }
+            if (chosen == null) {
+                throw new BusinessException("目标学院暂无匹配性别且有床位空闲的宿舍楼，请联系宿管科");
+            }
+            targetBuilding = chosen.getName();
             requireBuildingSpare(student, targetBuilding, null);
         }
 
@@ -582,11 +589,11 @@ public class DormApplicationService {
 
     private boolean buildingMatchesGender(String buildingName, String gender) {
         boolean male = "男".equals(gender);
+        Building b = findBuilding(buildingName);
+        if (b != null) {
+            return male == b.isMale();
+        }
         return male == (buildingName != null && buildingName.endsWith("A栋"));
-    }
-
-    private String genderBuildingOf(String collegeCode, String gender) {
-        return collegeCode + ("男".equals(gender) ? "A栋" : "B栋");
     }
 
     /** 某班级对应的专业名（取该班任一学生的 major）。 */

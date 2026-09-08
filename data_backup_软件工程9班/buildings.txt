@@ -1,0 +1,36 @@
+# 楼栋表：name|alias|collegeCode|managerId|floorCount|hasBathroom|gender
+# 字段以 | 分隔，一行一条记录；# 开头为注释行。
+01A栋||01||12|true|
+01B栋||01||3|true|
+02A栋||02||12|true|
+02B栋||02||3|true|
+03A栋||03||12|true|
+03B栋||03||3|true|
+04A栋||04||12|true|
+04B栋||04||3|true|
+05A栋||05||12|true|
+05B栋||05||3|true|
+06A栋||06||12|true|
+06B栋||06||3|true|
+07A栋||07||12|true|
+07B栋||07||3|true|
+08A栋||08||12|true|
+08B栋||08||3|true|
+09A栋||09||3|true|
+09B栋||09||12|true|
+10A栋||10||12|true|
+10B栋||10||3|true|
+11A栋||11||12|true|
+11B栋||11||3|true|
+12A栋||12||3|true|
+12B栋||12||12|true|
+13A栋||13||3|true|
+13B栋||13||12|true|
+14A栋||14||3|true|
+14B栋||14||12|true|
+15A栋||15||3|true|
+15B栋||15||12|true|
+16A栋||16||3|true|
+16B栋||16||12|true|
+20A栋||20||12|true|
+20B栋||20||3|true|

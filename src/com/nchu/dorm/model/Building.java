@@ -26,6 +26,12 @@ public class Building {
     /** 是否有独立卫浴（真实信息：1-6 栋无，7-28 栋有） */
     private boolean hasBathroom;
 
+    /**
+     * 楼栋性别："男"/"女"。为空时按命名约定推导（A栋=男 / B栋=女），见 {@link #genderText()}。
+     * 迭代五引入显式性别字段，使"真实楼名 + 性别"的楼栋分配成为可能。
+     */
+    private String gender;
+
     public Building() {
     }
 
@@ -87,14 +93,50 @@ public class Building {
         this.hasBathroom = hasBathroom;
     }
 
-    /** 文本序列化：name|alias|collegeCode|managerId|floorCount|hasBathroom */
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    /**
+     * 楼栋的有效性别：优先取显式 {@link #gender} 字段；
+     * 为空时按命名约定推导——以 "A栋" 结尾为男、以 "B栋" 结尾为女，否则为空（未定）。
+     */
+    public String genderText() {
+        if (gender != null && !gender.isEmpty()) {
+            return gender;
+        }
+        if (name != null && name.endsWith("A栋")) {
+            return "男";
+        }
+        if (name != null && name.endsWith("B栋")) {
+            return "女";
+        }
+        return "";
+    }
+
+    /** 是否男生宿舍楼（显式性别或命名推导）。 */
+    public boolean isMale() {
+        return "男".equals(genderText());
+    }
+
+    /** 是否女生宿舍楼（显式性别或命名推导）。 */
+    public boolean isFemale() {
+        return "女".equals(genderText());
+    }
+
+    /** 文本序列化：name|alias|collegeCode|managerId|floorCount|hasBathroom|gender */
     public String toLine() {
         return TextUtil.escape(name) + "|"
                 + TextUtil.escape(alias) + "|"
                 + TextUtil.escape(collegeCode) + "|"
                 + TextUtil.escape(managerId) + "|"
                 + floorCount + "|"
-                + hasBathroom;
+                + hasBathroom + "|"
+                + TextUtil.escape(gender);
     }
 
     public static Building fromLine(String line) {
@@ -106,6 +148,9 @@ public class Building {
         b.managerId = f[3];
         b.floorCount = Integer.parseInt(f[4]);
         b.hasBathroom = Boolean.parseBoolean(f[5]);
+        if (f.length > 6) {
+            b.gender = f[6];
+        }
         return b;
     }
 
