@@ -123,19 +123,12 @@ public class DormApplicationService {
         String targetCollege = collegeOfClass(targetClass);
         String targetBuilding = null;
         if (!targetCollege.equals(student.getCollegeCode())) {
-            // 跨学院转专业：需搬迁到目标学院同性别楼（从目标学院名下已分配楼栋中按性别挑选有空床的）
-            boolean male = "男".equals(student.getGender());
-            Building chosen = null;
-            for (Building b : dc().findBuildingsOfCollege(targetCollege)) {
-                if (male == b.isMale() && !dc().findAvailableRooms(b.getName()).isEmpty()) {
-                    chosen = b;
-                    break;
-                }
-            }
-            if (chosen == null) {
+            // 跨学院转专业：需搬迁到目标学院同性别楼。优先选已住有目标班级/专业学生的楼栋，
+            // 使转入学生能融入同班/同专业宿舍，而不是被丢进任意有空床的楼。
+            targetBuilding = RoomAssignmentService.recommendBuilding(targetCollege, student.getGender(), targetClass);
+            if (targetBuilding == null) {
                 throw new BusinessException("目标学院暂无匹配性别且有床位空闲的宿舍楼，请联系宿管科");
             }
-            targetBuilding = chosen.getName();
             requireBuildingSpare(student, targetBuilding, null);
         }
 
@@ -181,7 +174,8 @@ public class DormApplicationService {
             throw new BusinessException("目标房间不能是学生现居房间");
         }
 
-        // 先释放原床位（转宿），再占新空床（入住/转宿）
+        // 先确认新房间有空床，再释放原床位（转宿），最后占新床
+        requireEmptyBed(room);
         if (DormApplication.TYPE_TRANSFER.equals(app.getType())) {
             releaseCurrentRoom(student);
         }
@@ -268,6 +262,7 @@ public class DormApplicationService {
                     && roomNo.equals(student.getCurrentRoom())) {
                 throw new BusinessException("目标房间不能是学生现居房间");
             }
+            requireEmptyBed(room);
             releaseCurrentRoom(student);
             occupyBed(room, student);
             student.setCurrentBuilding(buildingName);
@@ -565,6 +560,16 @@ public class DormApplicationService {
         }
         student.setCurrentBuilding(null);
         student.setCurrentRoom(null);
+    }
+
+    /**
+     * 目标房间须有空床。须在 {@link #releaseCurrentRoom} <b>之前</b>校验：
+     * 否则会先释放原床位、占床时才失败，把学生住宿状态清空成"已释放却未入住"的脏状态。
+     */
+    private void requireEmptyBed(Room room) {
+        if (room.findEmptyBed() == null) {
+            throw new BusinessException("该房间已住满，请选择其他房间");
+        }
     }
 
     private void occupyBed(Room room, Student student) {

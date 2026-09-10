@@ -70,12 +70,45 @@ public class ElectricityService {
         if (room == null) {
             throw new BusinessException("购电单对应的房间不存在（可能该学生已退宿）");
         }
+        settle(purchase, room, admin);
+        dc().saveAll();
+        return purchase;
+    }
+
+    /**
+     * 一键售电：把全部「待售电」购电单批量确认收费（全校范围，不受界面筛选影响）。
+     * <p>
+     * 逐单售电遇到房间不存在会直接报错；批量场景下这类单据只跳过、不中断其余单据，
+     * 由调用方按「未售出单数」提示人工核对。
+     * </p>
+     *
+     * @return 本次成功售出的单数（可能小于待售电单数）
+     */
+    public int sellAll(Admin admin) {
+        int count = 0;
+        for (ElectricityPurchase purchase : dc().getElectricityPurchases()) {
+            if (!purchase.isPending()) {
+                continue;
+            }
+            Room room = dc().findRoomByKey(purchase.getRoomKey());
+            if (room == null) {
+                continue;
+            }
+            settle(purchase, room, admin);
+            count++;
+        }
+        if (count > 0) {
+            dc().saveAll();
+        }
+        return count;
+    }
+
+    /** 收费入账：房间电表加上电量并打上售电标记；不落盘，由调用方决定逐单还是批量统一保存。 */
+    private void settle(ElectricityPurchase purchase, Room room, Admin admin) {
         room.creditElectricity(purchase.getDegree());
         purchase.setStatus(ElectricityPurchase.STATUS_PAID);
         purchase.setHandlerId(admin.getId());
         purchase.setHandleTime(TimeUtil.now());
-        dc().saveAll();
-        return purchase;
     }
 
     /** 学生本人的全部购电记录（时间倒序）。 */

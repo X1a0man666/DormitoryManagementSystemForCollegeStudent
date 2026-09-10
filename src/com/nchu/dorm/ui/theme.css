@@ -22,10 +22,17 @@
  *  页面底    #f5f7fa
  *  表头底    #f1f5f9
  *  分隔边框  #e2e8f0 / #cbd5e1
+ *
+ * ── 华丽化补充 ────────────────────────────────────────────
+ *  极光深底  #050c18 → #11305a   登录页动效背景打底
+ *  柔光浅底  #eef3fb → #e8f1fb   主界面动效背景打底
+ *  流光蓝    #2f80ed → #56a8f5   主按钮渐变
+ *  徽标四色  #3b82f6 / #6366f1 / #06b6d4 / #8b5cf6
  * ────────────────────────────────────────────────────────────
  * 说明：JavaFX CSS 不支持 transition / 自定义属性，
  *       伪类 (:hover/:pressed/:selected/:focused) 为瞬时换肤；
- *       平滑几何动效由 javafx.animation (FxEffects) 承担。
+ *       平滑几何动效由 javafx.animation (FxEffects) 承担，
+ *       随容器尺寸缩放的动态光斑由 AuroraBackground 的径向渐变椭圆实现。
  * ============================================================ */
 
 .root {
@@ -63,9 +70,8 @@
 /* 文字/描边型按钮 hover 更醒目 */
 .btn-ghost:hover { -fx-background-color: #eaf4ff; }
 
-/* ============ 文本输入 / 下拉 / 多行文本 ============ */
-.text-field, .text-area,
-.combo-box {
+/* ============ 文本输入 / 多行文本 ============ */
+.text-field, .text-area {
     -fx-background-radius: 6;
     -fx-border-radius: 6;
     -fx-background-color: white;
@@ -73,23 +79,11 @@
     -fx-background-insets: 0;
     -fx-padding: 7 10 7 10;
 }
-.text-field:focused, .text-area:focused,
-.combo-box:focused, .combo-box:showing {
+.text-field:focused, .text-area:focused {
     -fx-border-color: #3498db;
 }
 .text-area .content { -fx-background-color: white; }
 .text-area .content:focused { -fx-background-color: white; }
-.combo-box > .list-cell { -fx-padding: 5 10 5 10; }
-.combo-box-popup > .list-view {
-    -fx-background-radius: 6;
-    -fx-border-radius: 6;
-    -fx-background-color: white;
-    -fx-border-color: #e2e8f0;
-    -fx-effect: dropshadow(gaussian, rgba(148, 163, 184, 0.53), 12, 0.15, 0, 3);
-}
-.combo-box-popup .list-cell { -fx-padding: 7 12 7 12; }
-.combo-box-popup .list-cell:hover { -fx-background-color: #eaf4ff; }
-.combo-box-popup .list-cell:filled:selected { -fx-background-color: #d6e8fa; }
 
 /* ============ 表格 ============ */
 .table-view {
@@ -120,30 +114,162 @@
 .table-row-cell:empty { -fx-background-color: transparent; }
 .table-view .scroll-bar:vertical { -fx-background-color: transparent; }
 
-/* ============ 列表（侧栏菜单 / 楼栋多选） ============ */
+/* ============ 列表（楼栋多选） ============ */
+/*
+ * 只作用于真正的 ListView：ComboBox 的按钮单元格恒带 :filled:selected
+ * （ComboBoxListViewSkin 里硬编码置位），且下拉弹层内部也是一个 ListView，
+ * 所以下面这套「深色选中态」必须锁在 .list-view 作用域里，
+ * 下拉框的按钮/弹层再用下一节的规则压回浅色（顺序在后，同优先级下胜出）。
+ */
 .list-view {
     -fx-background-color: transparent;
 }
-.list-cell {
+.list-view .list-cell {
     -fx-padding: 11 16 11 16;
     -fx-background-color: transparent;
     -fx-background-radius: 8;
     -fx-text-fill: #2c3e50;
 }
-.list-cell:hover { -fx-background-color: #eef2f7; }
-.list-cell:filled:selected,
-.list-cell:filled:selected:focused {
+.list-view .list-cell:hover { -fx-background-color: #eef2f7; }
+.list-view .list-cell:filled:selected,
+.list-view .list-cell:filled:selected:focused {
     -fx-background-color: #2c3e50;
     -fx-text-fill: white;
 }
 .list-view .scroll-bar { -fx-background-color: transparent; }
 
+/* ============ 下拉框（ComboBox） ============ */
+.combo-box {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-background-color: white;
+    -fx-border-color: #cbd5e1;
+    -fx-background-insets: 0;
+    -fx-padding: 7 10 7 10;
+}
+.combo-box:focused, .combo-box:showing { -fx-border-color: #3498db; }
+/* 按钮单元格：永远是「已选中」态，这里显式定成透明底 + 正文色，别被列表的深色选中态传染 */
+.combo-box > .list-cell,
+.combo-box > .list-cell:hover,
+.combo-box > .list-cell:filled:selected,
+.combo-box > .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-text-fill: #2c3e50;
+    -fx-padding: 5 10 5 10;
+}
+/* 可编辑下拉框：内嵌文本框与箭头按钮都透明，避免在白色外框里再套一层灰框 */
+.combo-box-base:editable > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.combo-box > .arrow-button,
+.combo-box-base:editable > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+.combo-box-popup > .list-view {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-background-color: white;
+    -fx-border-color: #e2e8f0;
+    -fx-effect: dropshadow(gaussian, rgba(148, 163, 184, 0.53), 12, 0.15, 0, 3);
+}
+/* 弹层单元格：选择器比上一节的 .list-view .list-cell 多一层 .list-view，保证浅色态稳赢 */
+.combo-box-popup > .list-view .list-cell {
+    -fx-padding: 7 12 7 12;
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-text-fill: #2c3e50;
+}
+.combo-box-popup > .list-view .list-cell:hover { -fx-background-color: #eaf4ff; }
+.combo-box-popup > .list-view .list-cell:filled:selected,
+.combo-box-popup > .list-view .list-cell:filled:selected:focused {
+    -fx-background-color: #d6e8fa;
+    -fx-text-fill: #2c3e50;
+}
+
+/* ============ 日期选择框（DatePicker） ============ */
+/* 外框与文本框同款；内嵌文本框与日历按钮透明，别在白框里再套一层灰框 */
+.date-picker {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-background-color: white;
+    -fx-border-color: #cbd5e1;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+}
+.date-picker:focused, .date-picker:showing { -fx-border-color: #3498db; }
+.date-picker > .text-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 7 4 7 10;
+    -fx-cursor: text;
+}
+.date-picker > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0 10 0 4;
+}
+.date-picker > .arrow-button > .arrow { -fx-background-color: #7f8c8d; }
+
+/* 日历弹层：与下拉框弹层同一观感（白底 + 品牌蓝选中） */
+.date-picker-popup {
+    -fx-background-color: white;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-color: #e2e8f0;
+    -fx-effect: dropshadow(gaussian, rgba(148, 163, 184, 0.53), 12, 0.15, 0, 3);
+}
+.date-picker-popup > .month-year-pane {
+    -fx-background-color: #f1f5f9;
+    -fx-background-radius: 6 6 0 0;
+}
+.date-picker-popup > .month-year-pane .label { -fx-text-fill: #2c3e50; }
+.date-picker-popup > .month-year-pane > .spinner .button { -fx-background-color: transparent; }
+.date-picker-popup > * > .day-name-cell,
+.date-picker-popup > * > .week-number-cell {
+    -fx-text-fill: #7f8c8d;
+    -fx-font-size: 12px;
+}
+.date-picker-popup > * > .day-cell {
+    -fx-background-color: white;
+    -fx-border-color: #eef2f7;
+    -fx-text-fill: #2c3e50;
+}
+.date-picker-popup > * > .day-cell:hover { -fx-background-color: #eaf4ff; }
+.date-picker-popup > * > .day-cell.previous-month,
+.date-picker-popup > * > .day-cell.next-month { -fx-text-fill: #b8c2cc; }
+.date-picker-popup > * > .today {
+    -fx-background-color: #d6e8fa;
+    -fx-text-fill: #2c3e50;
+}
+.date-picker-popup > * > .selected,
+.date-picker-popup > * > .selected:hover {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+}
+
 /* ============ 滚动条 / 页面背景 ============ */
+/*
+ * 页面滚动面板一律透明：主框架在最底层垫了一层柔光背景（见 .aurora-light），
+ * 这里再刷一层不透明的 #f5f7fa 会把那层底色整个盖掉，动效就白做了。
+ *
+ * 注意 -fx-background 不能跟着一起设成 transparent：它是「查找色」，会被整棵子树继承，
+ * 而 modena 默认的 -fx-text-fill: -fx-text-background-color 是用 ladder(-fx-background, ...)
+ * 从这个色推出来的。设成透明后 ladder 推不出深色，于是页内所有没显式指定颜色的 Label
+ * （如 StudentView 的 value() 返回值）都会变成近白色，在浅色底上等于隐形。
+ * 这里保留一个浅色查找值，只把「画出来」的 -fx-background-color 置空即可。
+ */
 .page-scroll {
-    -fx-background-color: #f5f7fa;
+    -fx-background-color: transparent;
     -fx-background: #f5f7fa;
 }
-.page-scroll > .viewport { -fx-background-color: #f5f7fa; }
+.page-scroll > .viewport { -fx-background-color: transparent; }
 .scroll-bar:vertical, .scroll-bar:horizontal {
     -fx-background-color: transparent;
     -fx-pref-width: 10;
@@ -186,21 +312,54 @@
 .text-danger      { -fx-text-fill: #e74c3c; -fx-font-weight: bold; }
 
 /* ============ 卡片 ============ */
+/*
+ * 圆角与阴影跟首页 .stat-card 对齐：二级界面整页都是这类白卡片，
+ * 之前 10px 圆角 + 3px 偏移的小阴影和一级界面放在一起明显是两套观感。
+ */
 .card {
     -fx-background-color: white;
-    -fx-background-radius: 10;
-    -fx-border-color: #e2e8f0;
-    -fx-border-radius: 10;
-    -fx-effect: dropshadow(gaussian, rgba(148, 163, 184, 0.27), 14, 0.12, 0, 3);
+    -fx-background-radius: 12;
+    -fx-border-color: #e6edf6;
+    -fx-border-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(120, 150, 190, 0.20), 16, 0.10, 0, 5);
 }
 
-/* ============ MainFrame：顶栏 / 侧栏 / 导航 ============ */
+/* 卡片外观的滚动面板：外面是卡片，内部内容自动滚动（右侧审批面板）。 */
+.panel-scroll {
+    -fx-background-color: white;
+    -fx-background: white;
+    -fx-background-radius: 12;
+    -fx-border-color: #e6edf6;
+    -fx-border-radius: 12;
+    -fx-padding: 0;
+    -fx-effect: dropshadow(gaussian, rgba(120, 150, 190, 0.20), 16, 0.10, 0, 5);
+}
+.panel-scroll > .viewport {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+}
+
+/* ============ MainFrame：顶栏 / 左上角悬浮菜单 / 导航 ============ */
 .app { -fx-background-color: #f5f7fa; }
 .topbar {
-    -fx-background-color: linear-gradient(to right, #1f2f3d, #3498db);
-    -fx-padding: 0 20 0 20;
+    /* 三段式横向渐变：左端深到接近墨蓝，右端收在亮蓝，比两色线性渐变更有纵深 */
+    -fx-background-color: linear-gradient(to right, #0f2136, #1b3f68 38%, #2a6ba8 72%, #3f8fd0);
+    /* 左边缘留出 72px 给悬浮菜单标识（16 左距 + 44 标识 + 12 间隔） */
+    -fx-padding: 0 20 0 72;
     -fx-min-height: 60px;
-    -fx-effect: dropshadow(gaussian, rgba(31, 47, 61, 0.33), 12, 0.2, 0, 2);
+    /* 底边一道亮蓝描边，当顶栏与浅色内容区的分界发光带 */
+    -fx-border-color: transparent transparent rgba(130, 195, 255, 0.55) transparent;
+    -fx-border-width: 0 0 1.5 0;
+    -fx-effect: dropshadow(gaussian, rgba(12, 28, 48, 0.42), 16, 0.22, 0, 3);
+}
+/* 顶栏流光带：宽度由 Java 侧定为 220px，这里只负责「中间亮两头透」的形态 */
+.topbar-sheen {
+    -fx-background-color: linear-gradient(to right,
+        rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.22) 50%, rgba(255, 255, 255, 0.0));
+}
+/* 顶栏校徽（图片资源缺失时退回「寝」字方块，见 .logo-mark） */
+.logo-image {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.30), 8, 0.2, 0, 2);
 }
 .logo-mark {
     -fx-background-color: white;
@@ -223,12 +382,55 @@
     -fx-text-fill: white;
     -fx-font-size: 12px;
 }
-.sidebar {
-    -fx-background-color: white;
-    -fx-border-color: transparent #e2e8f0 transparent transparent;
-    -fx-padding: 16 12 16 12;
+/* 悬浮菜单层：8(上距) + 44(标识) + 8(间隔) = 60，面板正好自顶栏下沿展开 */
+.menu-layer { -fx-padding: 8 0 0 16; }
+.menu-trigger {
+    -fx-background-color: rgba(255, 255, 255, 0.16);
+    -fx-background-radius: 10;
+    -fx-background-insets: 0;
+    -fx-min-width: 44px; -fx-max-width: 44px;
+    -fx-min-height: 44px; -fx-max-height: 44px;
+    -fx-padding: 0;
+    -fx-alignment: center;
+    -fx-text-fill: white;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
 }
-.side-head { -fx-text-fill: #95a5a6; -fx-font-size: 12px; -fx-font-weight: bold; }
+.menu-trigger:hover { -fx-background-color: rgba(255, 255, 255, 0.34); }
+.menu-panel {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 12;
+    -fx-padding: 14 12 14 12;
+    -fx-pref-width: 236px;
+    -fx-effect: dropshadow(gaussian, rgba(31, 47, 61, 0.28), 18, 0.16, 0, 8);
+}
+.menu-head {
+    -fx-text-fill: #95a5a6;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 4 6;
+}
+
+/* 内容区顶部「返回主页」条（首页整条隐藏） */
+.page-bar { -fx-padding: 12 24 0 24; }
+.btn-back {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+    -fx-text-fill: #2c3e50;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+}
+.btn-back:hover {
+    -fx-background-color: #f5faff;
+    -fx-border-color: #3498db;
+    -fx-text-fill: #3498db;
+}
 .nav-item {
     -fx-background-color: transparent;
     -fx-background-radius: 8;
@@ -243,62 +445,186 @@
 }
 .nav-item:hover { -fx-background-color: #eef2f7; -fx-text-fill: #2c3e50; }
 .nav-item:selected {
-    -fx-background-color: #2c3e50;
+    /* 选中项走「墨蓝 → 品牌蓝」的渐变并带一层外发光，在白色菜单面板里跳得出来 */
+    -fx-background-color: linear-gradient(to right, #22303f, #2f5f8c 68%, #3585c9);
     -fx-text-fill: white;
     -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(52, 152, 219, 0.38), 12, 0.22, 0, 2);
 }
-.btn-logout {
-    -fx-background-color: rgba(255, 255, 255, 0.13);
+/*
+ * 顶栏右侧「退出」悬浮菜单：与左上角功能菜单同构（移入展开、移出收起），
+ * 改为危险红调；触发器叠在顶栏之上，位置与 .menu-trigger 左右对称。
+ */
+.exit-layer {
+    /* 15(上距) + 30(触发器) + 15 = 60，触发器正好在顶栏内垂直居中 */
+    -fx-padding: 15 20 0 0;
+}
+.exit-trigger {
+    -fx-background-color: #e74c3c;
     -fx-background-radius: 8;
+    -fx-background-insets: 0;
+    -fx-min-height: 30px; -fx-max-height: 30px;
+    -fx-padding: 0 16 0 16;
+    -fx-alignment: center;
     -fx-text-fill: white;
     -fx-font-size: 12px;
-    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
 }
-.btn-logout:hover { -fx-background-color: #e74c3c; }
+.exit-trigger:hover { -fx-background-color: #d63a3a; }
+.exit-panel {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-color: #e74c3c;
+    -fx-border-radius: 12;
+    -fx-padding: 8 8 8 8;
+    -fx-pref-width: 150px;
+    -fx-effect: dropshadow(gaussian, rgba(31, 47, 61, 0.28), 18, 0.16, 0, 8);
+}
+.exit-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-background-insets: 0;
+    -fx-padding: 9 14 9 14;
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-cursor: hand;
+}
+.exit-item:hover { -fx-background-color: #e74c3c; -fx-text-fill: white; }
+.exit-item:pressed { -fx-background-color: #c53636; -fx-text-fill: white; }
 
 /* ============ 首页概览卡 ============ */
 .home-greeting { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #2c3e50; }
 .home-sub { -fx-text-fill: #7f8c8d; -fx-font-size: 13px; }
 .stat-card {
     -fx-background-color: white;
-    -fx-background-radius: 12;
-    -fx-border-color: #e2e8f0;
-    -fx-border-radius: 12;
-    -fx-padding: 18 22 18 22;
+    -fx-background-radius: 14;
+    -fx-border-color: #e4ecf5;
+    -fx-border-radius: 14;
+    /* 内距写在这里而不是 setPadding：CSS 在 Java 设值之后应用，会把它覆盖掉 */
+    -fx-padding: 16 18 16 18;
     -fx-cursor: hand;
-    -fx-effect: dropshadow(gaussian, rgba(148, 163, 184, 0.27), 12, 0.1, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(120, 150, 190, 0.22), 14, 0.10, 0, 4);
 }
-.stat-card:hover { -fx-border-color: #3498db; }
+.stat-card:hover {
+    -fx-border-color: #6fb2ea;
+    -fx-effect: dropshadow(gaussian, rgba(52, 152, 219, 0.34), 24, 0.18, 0, 9);
+}
 .stat-title  { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2c3e50; }
 .stat-desc   { -fx-font-size: 12px; -fx-text-fill: #7f8c8d; }
 .stat-arrow  { -fx-text-fill: #3498db; -fx-font-size: 13px; -fx-font-weight: bold; }
 
-/* ============ 登录页 ============ */
-.login-bg { -fx-background-color: linear-gradient(to bottom right, #1f2f3d, #3498db); }
-.login-card {
-    -fx-background-color: white;
-    -fx-background-radius: 16;
-    -fx-padding: 40 44 36 44;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.40), 30, 0.25, 0, 8);
+/* 卡片左侧的渐变圆角徽标（首字），四套配色循环使用（见 MainFrame.BADGE_VARIANTS） */
+.card-badge {
+    -fx-min-width: 40px;  -fx-max-width: 40px;
+    -fx-min-height: 40px; -fx-max-height: 40px;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(30, 64, 120, 0.28), 10, 0.20, 0, 3);
 }
-.login-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #2c3e50; }
-.login-sub   { -fx-font-size: 12px; -fx-text-fill: #95a5a6; }
+.badge-0 { -fx-background-color: linear-gradient(to bottom right, #3b82f6, #60a5fa); }
+.badge-1 { -fx-background-color: linear-gradient(to bottom right, #6366f1, #818cf8); }
+.badge-2 { -fx-background-color: linear-gradient(to bottom right, #06b6d4, #22d3ee); }
+.badge-3 { -fx-background-color: linear-gradient(to bottom right, #8b5cf6, #a78bfa); }
+.card-badge-text { -fx-text-fill: white; -fx-font-size: 17px; -fx-font-weight: bold; }
+
+/* 悬停时横扫卡片的高光带；位移与显隐由 FxEffects.shimmerOnHover 驱动，这里只定义形态 */
+.card-sheen {
+    -fx-background-color: linear-gradient(to right,
+        rgba(120, 180, 255, 0.0), rgba(120, 180, 255, 0.30) 50%, rgba(120, 180, 255, 0.0));
+    -fx-background-radius: 14;
+}
+
+/* ============ 极光动效背景层（AuroraBackground） ============ */
+/*
+ * 两套底色：登录页走深空蓝，主界面走浅色柔光。
+ * 真正的光斑是 Java 侧按容器比例铺的径向渐变椭圆（CSS 做不了随尺寸缩放的动效），
+ * 这里只负责打底与兜底——即使动效层因为某些原因没跑起来，底色本身也是完整的。
+ */
+.aurora-dark  { -fx-background-color: linear-gradient(to bottom right, #050c18, #0b1e3a 36%, #11305a 64%, #071120); }
+.aurora-light { -fx-background-color: linear-gradient(to bottom right, #eef3fb, #f8fbff 46%, #e8f1fb); }
+
+/* ============ 登录页 ============ */
+.login-bg { -fx-background-color: linear-gradient(to bottom right, #050c18, #11305a); }
+/*
+ * 玻璃卡：半透明白 + 极淡的同色描边 + 大而软的投影。
+ * 不透明度取 0.93——再低背景的极光就会透过文字，再高就退回一张普通白卡了。
+ */
+.login-card {
+    /* 两层叠出玻璃感：上层是顶部发亮、往下淡出的高光，下层才是半透明白本体。
+       背景列表里排在前面的画在上面。 */
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.0) 42%),
+        rgba(255, 255, 255, 0.93);
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+    -fx-border-color: rgba(255, 255, 255, 0.80);
+    -fx-border-radius: 20;
+    -fx-border-width: 1;
+    -fx-padding: 34 44 30 44;
+    -fx-effect: dropshadow(gaussian, rgba(2, 10, 25, 0.55), 44, 0.28, 0, 18);
+}
+/* 渐变文字：比纯色标题更有分量，也呼应顶栏的品牌蓝 */
+.login-title {
+    -fx-font-size: 27px;
+    -fx-font-weight: bold;
+    -fx-text-fill: linear-gradient(to bottom right, #16324f, #2a6ba8 48%, #4aa3e0);
+}
+.login-sub   { -fx-font-size: 12px; -fx-text-fill: #8595a6; }
+/* 标题与表单之间的渐变分隔线：两端淡出，中间收拢 */
+.login-divider {
+    -fx-background-color: linear-gradient(to right,
+        rgba(52, 152, 219, 0.0), rgba(52, 152, 219, 0.55) 32%,
+        rgba(44, 62, 80, 0.30) 68%, rgba(44, 62, 80, 0.0));
+}
+/* 卡片内的输入框单独加深圆角与内底色，跟玻璃卡的观感拉开一点层次 */
+.login-card .text-field {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-background-color: rgba(246, 249, 253, 0.96);
+    -fx-border-color: #d5e0ed;
+    -fx-padding: 9 12 9 12;
+}
+.login-card .text-field:focused {
+    -fx-background-color: white;
+    -fx-border-color: #3498db;
+    -fx-effect: dropshadow(gaussian, rgba(52, 152, 219, 0.42), 12, 0.25, 0, 0);
+}
 .login-label { -fx-text-fill: #334155; -fx-font-weight: bold; }
 .login-error { -fx-text-fill: #e74c3c; -fx-font-size: 13px; }
-.login-hint {
-    -fx-background-color: #f0f7ff;
-    -fx-background-radius: 8;
-    -fx-padding: 10 14 10 14;
-}
 .login-btn {
-    -fx-background-color: #3498db;
-    -fx-background-radius: 8;
+    -fx-background-color: linear-gradient(to right, #2f80ed, #56a8f5 52%, #3b8fdd);
+    -fx-background-radius: 10;
     -fx-text-fill: white;
     -fx-font-size: 15px;
     -fx-font-weight: bold;
-    -fx-padding: 10 0 10 0;
+    -fx-padding: 11 0 11 0;
     -fx-cursor: hand;
     -fx-background-insets: 0;
+    -fx-effect: dropshadow(gaussian, rgba(47, 128, 237, 0.45), 16, 0.25, 0, 5);
 }
-.login-btn:hover   { -fx-background-color: #2f89c5; }
-.login-btn:pressed { -fx-background-color: #2a7fb8; }
+.login-btn:hover {
+    -fx-background-color: linear-gradient(to right, #2a76de, #4fa2f0 52%, #3583cf);
+    -fx-effect: dropshadow(gaussian, rgba(47, 128, 237, 0.70), 24, 0.30, 0, 7);
+}
+.login-btn:pressed {
+    -fx-background-color: linear-gradient(to right, #2568c4, #3f8bd6 52%, #2d74b8);
+    -fx-effect: dropshadow(gaussian, rgba(47, 128, 237, 0.30), 8, 0.20, 0, 2);
+}
+/* 登录卡片内的「退出系统」：描边红按钮，与上方实心登录按钮区分主次 */
+.login-exit {
+    -fx-background-color: transparent;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(231, 76, 60, 0.75);
+    -fx-border-radius: 10;
+    -fx-background-insets: 0;
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 14px;
+    -fx-padding: 9 0 9 0;
+    -fx-cursor: hand;
+}
+.login-exit:hover {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(231, 76, 60, 0.55), 16, 0.25, 0, 5);
+}
+.login-exit:pressed { -fx-background-color: #c53636; -fx-text-fill: white; }

@@ -49,13 +49,16 @@ src/com/nchu/dorm/
 │   ├── RoleKey.java(常量接口) / RoleCapable.java(接口) / Account.java
 │   ├── College / Building / Room / Bed     # 宿舍信息组合链
 │   ├── application/        # DormApplication / RepairTicket / ElectricityPurchase
-│   └── record/             # NightReturnRecord / HygieneRecord / ValuablesRecord
+│   ├── record/             # NightReturnRecord / HygieneRecord / ValuablesRecord
+│   └── announcement/       # Announcement（宿管科发布的全校公告，当前用于物品遗失通报）
 ├── storage/                # Storage(接口) / TextStorage(文本实现) / DataCenter(单例门面)
 ├── service/                # AuthService / DormApplicationService / ElectricityService(购电售电)
 │                           #   / RepairService(报修修理) / AdminService(楼栋分配+宿舍管理(人员)管理)
-│                           #   / DormStaffService(夜归/卫生/贵重登记)
+│                           #   / DormStaffService(夜归/卫生/贵重登记 + 遗失上报宿管科)
+│                           #   / StudentLifeService(学生端夜归确认/卫生反馈/贵重确认)
+│                           #   / AnnouncementService(宿管科审核发布遗失公告)
 ├── ui/                     # LoginView / MainFrame / StudentView / CounselorView /
-│                           #   DormStaffView / AdminView / component/AlertUtil
+│                           #   DormStaffView / AdminView / SettingsView / component/AlertUtil
 └── util/                   # TextUtil / TimeUtil / FormatUtil / BusinessException
 data/                       # 运行时数据（首次运行自动生成演示数据）
 md/                         # 本文档 + 更新记录 + 设计资料
@@ -81,7 +84,7 @@ md/                         # 本文档 + 更新记录 + 设计资料
 | 25201101 | 123456 | 学生 | 2025级软件学院 女生，住 20B栋 |
 | 26201101 | 123456 | 学生 | 2026级软件学院 女生，住 20B栋 |
 
-## 七、当前进度（截至 2026-09-09）
+## 七、当前进度（截至 2026-09-11）
 
 - ✅ v1 全部完成：登录 + 学生申请 + 辅导员审批分配 + 文本持久化 + 四角色界面框架。
 - ✅ 冒烟测试通过：登录、错误密码、提交申请、审批分配、文件回读一致。
@@ -92,6 +95,7 @@ md/                         # 本文档 + 更新记录 + 设计资料
 - ✅ 数据扩展（2026-09-09）：种子 `ADMISSION_YEARS` 由 {2024,2025} 扩为 **{2023,2024,2025,2026}**——新增 23、26 级学生学号/账号（规则不变）。全量 = 17 院 × 4 专业 × 4 班 × 40 人 × 4 届 = **43,520 学生 + 272 辅导员**；宿舍随人数扩层（理学院男楼多数 12 层、文学院女楼 12 层，反向少数 3 层）共 **34 栋楼、11,475 间房**，23-26 按学号顺序重排宿（23 级居低层、24/25 顺延）。回读断言全过（学号全合法、床位↔学生双向一致、性别-楼栋一致、无重复账号）；旧 dorm_applications 样例 AP0001 因重排清除。
 - ✅ 迭代五（2026-09-09，宿管科 / 宿舍管理人员 / 学生生活服务）：①购电闭环（学生按 0.60 元/度提交 → 宿管科「售电」确认收费 → 房间电表余额 `Room.electricityBalance` 到账）；②维修闭环（学生报修当前房 → 宿管科「修理管理」受理 PROCESSING → 办结 DONE）；③宿管科「楼栋分配」（空置楼栋划拨/解除给学院，已入住楼栋禁止调归属，新增 2 栋未分配备用空楼供演示）；④宿管科「宿舍管理人员管理」（增删改 + 自动生成登录账号，用户名=工号小写/默认密码 123456）；⑤宿舍管理人员「夜归 / 卫生 / 贵重物品」三类登记（仅限本人分管楼栋内入住学生/房间）。同时 `Building` 增加显式 `gender` 列、`ElectricityPurchase` 增加 status/handler/handleTime 列、房间表增加电表余额列——三者均向后兼容旧数据（fromLine 越界缺省）。详见 X1a0man05.md。
 - ✅ 软件工程扩班（2026-09-09）：软件学院·软件工程每届由 4 班扩为 **9 班**（学号班级位本就支持 1-9，班级展示/转专业下拉/审批归口均从学生数据推导，无需改逻辑）。种子改为按专业取班级数（`DataCenter`：软件工程 9、其余 4），删除 `data/` 重排后全量 = **44,320 学生**（较 43,520 +800）+ 272 辅导员（不变）+ **36 栋楼、11,925 间房**（含迭代五 LD002、天骄苑1/2 备用空楼，本次重排一并补齐）；软件学院 20A 12→15 层、20B 3→4 层。旧演示记录 AP0001/RP0001 随重排清除。
+- ✅ 迭代六（2026-09-11，学生端「生活确认」三项闭环 + 遗失物公告链路）：①**夜归确认**——学生查看本人夜归记录并「确认已到寝」或「提异议」（说明必填），宿管登记表新增「学生确认」列；②**卫生检查**——学生按**寝室**查看宿管的历次评分/评语/检查人（含历史、倒序、显示平均分），可反馈「无异议 / 有问题」（室友共享记录，反馈记名）；③**贵重物品确认**——学生对自己**带出**的物品确认「未丢失」或报「已遗失」，遗失走 **学生报损 → 分管宿管「遗失上报」核实上报 → 宿管科「遗失公告」审核发布** 链路，公告只公布学号不公布姓名（「某学生（学号：…）xx 物品遗失…」），全校学生在「公告」页可见。菜单：学生 +4 项（夜归确认/我的卫生检查/贵重物品确认/公告）、宿管 +「遗失上报」、宿管科 +「遗失公告」。新增 `model/announcement/Announcement`、`service/StudentLifeService`、`service/AnnouncementService` 与 `data/announcements.txt`；三张记录表各加状态列（5→8 / 6→10 / 6→12 列），`fromLine` 全部长度守卫、旧数据缺省即初始状态。**已用 openjdk-25 编译通过 + 无 GUI 冒烟测试 83 项断言全过**（含落库回读一致、旧格式短行兼容）。详见 X1a0man06.md。
 
 ## 八、已踩坑（别再犯）
 
@@ -99,7 +103,16 @@ md/                         # 本文档 + 更新记录 + 设计资料
 2. 本机 Bash 工具对项目外敏感路径（如 JDK 目录、AppData）有访问限制：Read/Write/Edit 工具会被挡，但 Bash 的 `grep/sed/cat` 可以读写 AppData 配置。修改 AppData 前先 `cp` 备份。
 3. 文本文件字段分隔用 `|`，自由文本写入前必须 `TextUtil.escape()`。
 4. **IDEA 运行环境（2026-09-02 已修复）**：IDEA 只注册了 openjdk-25（无 JavaFX），真正带 JavaFX 的 JDK 8 在 `D:\develop\Java\.jdks\jdk`；原名 "1.8" 的注册指向了已不存在的 `D:\develop\Java_jdk8\jdk`。已把 `jdk.table.xml`（备份为 .bak）中所有 `D:/develop/Java_jdk8/jdk` 替换为 `D:/develop/Java/.jdks/jdk`，并新建了项目模块 `.iml` + `.idea/misc.xml`（SDK=1.8、语言级别 1.8）+ modules.xml + workspace.xml（MainApp 运行配置）。若重装/换机，按此重建。注意：IDEA 若在运行中退出，可能用内存旧配置覆盖 jdk.table.xml 的修复，必要时用 GUI 重新添加 JDK 8。
-5. **用户最终选择 openjdk-25 + JavaFX 25（2026-09-02）**：把项目 SDK 改成了 openjdk-25，因此 JavaFX 必须外挂。已下载 OpenJFX 25.0.4 三模块到 `D:\develop\javafx-25\lib\`，并在 `.idea/DormitoryManagementSystemForCollegeStudent.iml`（模块已由 IDEA 移到 .idea/ 下，modules.xml 指向它）加了 src 源码根 + 3 个 javafx jar 库，在 `.idea/workspace.xml` 的 MainApp 运行配置加了 VM 参数。**沙箱限制：无法直接运行 `.jdks`/`D:/develop` 下的 JDK 二进制做编译验证**，仅做了静态校验（全部 javafx 导入类 + CONSTRAINED_RESIZE_POLICY 均存在于 25.0.4 jar；javafx.controls 传递依赖 javafx.graphics/base 齐全）。
+5. **用户最终选择 openjdk-25 + JavaFX 25（2026-09-02）**：把项目 SDK 改成了 openjdk-25，因此 JavaFX 必须外挂。已下载 OpenJFX 25.0.4 三模块到 `D:\develop\javafx-25\lib\`，并在 `.idea/DormitoryManagementSystemForCollegeStudent.iml`（模块已由 IDEA 移到 .idea/ 下，modules.xml 指向它）加了 src 源码根 + 3 个 javafx jar 库，在 `.idea/workspace.xml` 的 MainApp 运行配置加了 VM 参数。**沙箱限制：不能写 `.jdks`/`D:/develop` 下 JDK 二进制的绝对路径**（会被判为敏感路径拒绝，连 `ls .../javac.exe` 都拦）。
+   **（2026-09-11 更正）但把 JDK 目录加进 PATH 后再调 `javac` 是可行的**，编译验证不必再只做静态校验：
+   ```bash
+   export PATH="/d/develop/Java/.jdks/openjdk-25.0.1/bin:$PATH"
+   find src -name "*.java" > sources.txt
+   javac -encoding UTF-8 -d out/verify/classes \
+     -cp "D:/develop/javafx-25/lib/javafx-base-25.0.4-win.jar;D:/develop/javafx-25/lib/javafx-controls-25.0.4-win.jar;D:/develop/javafx-25/lib/javafx-graphics-25.0.4-win.jar" \
+     @sources.txt
+   ```
+   三个要点：JavaFX 25 的 jar 是 class 文件版本 69，**必须**用 openjdk-25 编译（PATH 上的默认 `javac` 是 1.8，读不了）；`-cp` 里 **jar 必须放最前**，前面带相对路径会被 Git Bash 改写整串导致"程序包 javafx.scene… 不存在"；`DataCenter` 读相对路径 `data/`，故验证程序须在项目根目录运行。迭代六即用此方式完成编译 + 无 GUI 冒烟测试（83 项断言）。
 6. **学号合法性（迭代二）**：学号必须 8 位且学院代码仅 `01-16`/`20` 合法（`00`、`17-19` 非法）；`StudentId.VALID_COLLEGE_CODES` / `seedColleges()` / `data/colleges.txt` **三处需保持一致**。宿管科/宿舍管理员工号（`SK001`/`LD001`/`G001` 等，含 `00` 学院代码）与学号无关，不受影响。
 
 ## 九、给后续会话的行动指引

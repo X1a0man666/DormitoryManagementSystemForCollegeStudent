@@ -32,6 +32,18 @@ public class Counselor extends Staff {
         return "负责本学院学生的宿舍分配与申请审批。";
     }
 
+    /**
+     * 专业代码（1-4）：工号即「专业年级代码」= 入学年后两位 + 学院代码 + 专业代码（如 25201 → 25级·20学院·1专业），
+     * 第 5 位即专业代码。工号非 5 位标准格式（如手工新增）时返回 0，调用方按「专业未知」降级。
+     */
+    public int getMajorCode() {
+        String id = getId();
+        if (id == null || id.length() != 5 || !Character.isDigit(id.charAt(4))) {
+            return 0;
+        }
+        return id.charAt(4) - '0';
+    }
+
     public String toLine() {
         return staffToLine();
     }

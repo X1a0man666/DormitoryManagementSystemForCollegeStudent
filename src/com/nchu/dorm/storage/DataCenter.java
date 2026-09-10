@@ -12,6 +12,7 @@ import com.nchu.dorm.model.RoleKey;
 import com.nchu.dorm.model.Room;
 import com.nchu.dorm.model.Student;
 import com.nchu.dorm.model.StudentId;
+import com.nchu.dorm.model.announcement.Announcement;
 import com.nchu.dorm.model.application.DormApplication;
 import com.nchu.dorm.model.application.ElectricityPurchase;
 import com.nchu.dorm.model.application.RepairTicket;
@@ -20,6 +21,7 @@ import com.nchu.dorm.model.record.NightReturnRecord;
 import com.nchu.dorm.model.record.ValuablesRecord;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +37,7 @@ import java.util.function.Function;
 public class DataCenter {
 
     /** 数据目录：项目根目录下的 data 文件夹（必须声明在 INSTANCE 之前，避免静态初始化顺序问题） */
-    private static final java.nio.file.Path DATA_DIR = Paths.get("data");
+    private static final Path DATA_DIR = Paths.get("data");
 
     private static final DataCenter INSTANCE = new DataCenter();
 
@@ -54,6 +56,7 @@ public class DataCenter {
     private static final String FILE_VALUABLES = "valuables_records.txt";
     private static final String FILE_REPAIRS = "repair_tickets.txt";
     private static final String FILE_ELECTRICITY = "electricity_purchases.txt";
+    private static final String FILE_ANNOUNCEMENTS = "announcements.txt";
 
     // ==================== 全量数据生成参数（课程设定，可整体调整） ====================
 
@@ -122,12 +125,21 @@ public class DataCenter {
     private final List<ValuablesRecord> valuablesRecords = new ArrayList<>();
     private final List<RepairTicket> repairTickets = new ArrayList<>();
     private final List<ElectricityPurchase> electricityPurchases = new ArrayList<>();
+    private final List<Announcement> announcements = new ArrayList<>();
 
     private DataCenter() {
     }
 
     public static DataCenter instance() {
         return INSTANCE;
+    }
+
+    /**
+     * 头像图片目录（data/avatars）：头像按「人员标识.扩展名」存放，由 AvatarService 维护。
+     * 独立于实体文本文件，故不参与 {@link #loadAll()} / {@link #saveAll()}。
+     */
+    public Path avatarDirectory() {
+        return DATA_DIR.resolve("avatars");
     }
 
     // ==================== 加载 / 保存 ====================
@@ -154,6 +166,7 @@ public class DataCenter {
             load(FILE_VALUABLES, ValuablesRecord::fromLine, valuablesRecords);
             load(FILE_REPAIRS, RepairTicket::fromLine, repairTickets);
             load(FILE_ELECTRICITY, ElectricityPurchase::fromLine, electricityPurchases);
+            load(FILE_ANNOUNCEMENTS, Announcement::fromLine, announcements);
         } catch (IOException e) {
             throw new IllegalStateException("数据加载失败：" + e.getMessage(), e);
         }
@@ -171,13 +184,14 @@ public class DataCenter {
             save(FILE_COUNSELORS, "辅导员表：id|name|gender|phone|collegeCode|jobTitle", counselors, Counselor::toLine);
             save(FILE_DORM_STAFFS, "宿舍管理人员表：id|name|gender|phone|collegeCode|jobTitle|负责楼栋;楼栋", dormStaffs, DormStaff::toLine);
             save(FILE_ADMINS, "宿管科表：id|name|gender|phone|collegeCode|jobTitle", admins, Admin::toLine);
-            save(FILE_ACCOUNTS, "账号表：username|password|personId|roleKey", accounts, Account::toLine);
+            save(FILE_ACCOUNTS, "账号表：username|password|personId|roleKey|avatar", accounts, Account::toLine);
             save(FILE_APPLICATIONS, "宿舍申请表：id|studentId|type|targetBuilding|targetRoom|reason|status|createTime|reviewerId|reviewTime|reviewComment|originBuilding|originRoom|targetClass|originClass|step1ReviewerId|step1ReviewTime|step1ReviewComment", dormApplications, DormApplication::toLine);
-            save(FILE_NIGHT_RETURNS, "夜归记录表：id|studentId|date|returnTime|reason", nightReturnRecords, NightReturnRecord::toLine);
-            save(FILE_HYGIENE, "卫生检查表：id|roomKey|date|score|inspectorId|comment", hygieneRecords, HygieneRecord::toLine);
-            save(FILE_VALUABLES, "贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId", valuablesRecords, ValuablesRecord::toLine);
-            save(FILE_REPAIRS, "维修工单表：id|roomKey|reporterId|description|status|createTime|handlerId|handleTime", repairTickets, RepairTicket::toLine);
+            save(FILE_NIGHT_RETURNS, "夜归记录表：id|studentId|date|returnTime|reason|confirmStatus|confirmTime|studentRemark|reviewerId|reviewTime|reviewComment（confirmStatus：PENDING/CONFIRMED/DISPUTED/REVIEWED_KEPT/REVIEWED_ADJUSTED）", nightReturnRecords, NightReturnRecord::toLine);
+            save(FILE_HYGIENE, "卫生检查表：id|roomKey|date|score|inspectorId|comment|studentId|studentStatus|studentRemark|feedbackTime|reviewerId|reviewTime|reviewComment（studentStatus：空/ACKNOWLEDGED/DISPUTED/REVIEWED_KEPT/REVIEWED_ADJUSTED）", hygieneRecords, HygieneRecord::toLine);
+            save(FILE_VALUABLES, "贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId|confirmStatus|confirmTime|studentRemark|reportStatus|reporterId|reportTime（confirmStatus：PENDING/INTACT/LOST；reportStatus：NONE/STUDENT_REPORTED/ESCALATED/PUBLISHED）", valuablesRecords, ValuablesRecord::toLine);
+            save(FILE_REPAIRS, "维修工单表：id|roomKey|reporterId|description|status|createTime|handlerId|handleTime|escalatorId|escalateTime（status：SUBMITTED/PENDING/PROCESSING/DONE）", repairTickets, RepairTicket::toLine);
             save(FILE_ELECTRICITY, "购电记录表：id|roomKey|buyerId|degree|unitPrice|amount|createTime|status|handlerId|handleTime", electricityPurchases, ElectricityPurchase::toLine);
+            save(FILE_ANNOUNCEMENTS, "公告表：id|type|title|content|publisherId|publishTime|relatedId（type：LOST_ITEM）", announcements, Announcement::toLine);
         } catch (IOException e) {
             throw new IllegalStateException("数据保存失败：" + e.getMessage(), e);
         }
@@ -250,9 +264,26 @@ public class DataCenter {
         return electricityPurchases;
     }
 
+    public List<Announcement> getAnnouncements() {
+        return announcements;
+    }
+
     public Account findAccount(String username) {
         for (Account a : accounts) {
             if (a.getUsername().equals(username)) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    /** 按人员唯一标识（学号/工号）查其绑定的登录账号。 */
+    public Account findAccountByPersonId(String personId) {
+        if (personId == null) {
+            return null;
+        }
+        for (Account a : accounts) {
+            if (personId.equals(a.getPersonId())) {
                 return a;
             }
         }
@@ -334,6 +365,23 @@ public class DataCenter {
     public String collegeName(String code) {
         College c = findCollegeByCode(code);
         return c == null ? code : c.getName();
+    }
+
+    /**
+     * 专业名称：学院代码 + 专业代码(1-4) → 专业名称（如 "20" + 1 → "软件工程"）；未知返回 null。
+     * <p>专业清单只有课程设定常量一份（colleges.txt 只存学院与楼栋），故直接查 {@link #COLLEGE_MAJORS}，
+     * 不依赖学生数据是否完整。</p>
+     */
+    public String majorName(String collegeCode, int majorCode) {
+        if (collegeCode == null || majorCode < 1 || majorCode > MAJORS_PER_COLLEGE) {
+            return null;
+        }
+        for (String[] row : COLLEGE_MAJORS) {
+            if (row[0].equals(collegeCode)) {
+                return row[2 + majorCode]; // row[3..6] 为专业1..4
+            }
+        }
+        return null;
     }
 
     public Building findBuilding(String name) {
@@ -477,6 +525,10 @@ public class DataCenter {
 
     public String nextValuablesId() {
         return "VA" + String.format("%04d", maxSuffix(valuablesRecords, ValuablesRecord::getId, "VA") + 1);
+    }
+
+    public String nextAnnouncementId() {
+        return "AN" + String.format("%04d", maxSuffix(announcements, Announcement::getId, "AN") + 1);
     }
 
     /** 下一个宿舍管理人员工号（如 LD002）。 */

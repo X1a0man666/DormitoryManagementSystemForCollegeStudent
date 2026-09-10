@@ -1,2 +1,6 @@
-# 夜归记录表：id|studentId|date|returnTime|reason
+# 夜归记录表：id|studentId|date|returnTime|reason|confirmStatus|confirmTime|studentRemark|reviewerId|reviewTime|reviewComment（confirmStatus：PENDING/CONFIRMED/DISPUTED/REVIEWED_KEPT/REVIEWED_ADJUSTED）
 # 字段以 | 分隔，一行一条记录；# 开头为注释行。
+NR0001|24112322|2026-09-11|22:50|实习晚归|REVIEWED_ADJUSTED|2026-09-11 04:13:52|当晚我在实验室，23:30 才回，登记原因不对|LD001|2026-09-11 04:13:52|经核实，学生当晚 22:50 到寝，已更正时间与原因
+NR0002|24112322|2026-09-12|23:40|取快递|REVIEWED_KEPT|2026-09-11 04:13:53|我没有取快递|LD001|2026-09-11 04:13:53|经核实，登记无误，维持原登记
+NR0003|24112322|2026-09-13|23:10|看病|REVIEWED_KEPT|2026-09-11 04:13:53|时间不对|LD001|2026-09-11 04:13:53|经核实，维持原登记
+NR0004|24112322|2026-09-11|6:00||PENDING|||||

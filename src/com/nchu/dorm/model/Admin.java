@@ -4,7 +4,7 @@ import com.nchu.dorm.util.TextUtil;
 
 /**
  * 宿管科（继承 {@link Staff}）。
- * 负责楼栋分配、宿舍管理人员管理、修理管理、售电。
+ * 负责楼栋分配、宿舍管理人员管理、维修管理、售电。
  */
 public class Admin extends Staff {
 
@@ -28,7 +28,7 @@ public class Admin extends Staff {
 
     @Override
     public String getDutyDescription() {
-        return "负责楼栋分配、宿舍管理人员管理、修理工单处理与售电管理。";
+        return "负责楼栋分配、宿舍管理人员管理、维修工单处理与售电管理。";
     }
 
     public String toLine() {

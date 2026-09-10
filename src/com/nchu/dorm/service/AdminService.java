@@ -5,17 +5,21 @@ import com.nchu.dorm.model.Building;
 import com.nchu.dorm.model.College;
 import com.nchu.dorm.model.DormStaff;
 import com.nchu.dorm.model.RoleKey;
+import com.nchu.dorm.model.Student;
 import com.nchu.dorm.storage.DataCenter;
 import com.nchu.dorm.util.BusinessException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 宿管科管理服务：楼栋分配、宿舍管理人员管理（增删改 + 登录账号）。
+ * 宿管科管理服务：楼栋分配、宿舍管理人员管理（增删改 + 登录账号）、学生账号密码重置。
  * <ul>
  *   <li>楼栋分配：把（空置）楼栋分配给学院 / 解除分配。已入住学生的楼栋不允许改归属，
  *       避免学生档案与所在楼栋归属矛盾；</li>
- *   <li>宿舍管理人员：新增/编辑/删除，新员工同时生成登录账号（用户名=工号小写，默认密码 123456）。</li>
+ *   <li>宿舍管理人员：新增/编辑/删除，新员工同时生成登录账号（用户名=工号小写，默认密码 123456）；</li>
+ *   <li>学生账号：学生忘记密码时，宿管科按学号/姓名定位账号并重置为默认密码 123456
+ *       （学生自改密码见 {@link AccountService#changePassword}）。</li>
  * </ul>
  */
 public class AdminService {
@@ -167,6 +171,48 @@ public class AdminService {
                 dc().getAccounts().remove(i);
             }
         }
+        dc().saveAll();
+    }
+
+    // ==================== 学生账号（密码重置） ====================
+
+    /**
+     * 按学号或姓名定位学生：学号按前缀匹配（可只输前几位），姓名按包含匹配，两者取并集。
+     * <p>全校 4 万余名学生，关键词过宽时结果会很多，故由调用方传入 {@code limit} 限定返回条数。</p>
+     *
+     * @param limit 最多返回条数（{@code <=0} 表示不限）
+     */
+    public List<Student> searchStudents(String keyword, int limit) {
+        List<Student> result = new ArrayList<>();
+        String kw = keyword == null ? "" : keyword.trim();
+        if (kw.isEmpty()) {
+            return result;
+        }
+        for (Student s : dc().getStudents()) {
+            if (s.getId().startsWith(kw) || (s.getName() != null && s.getName().contains(kw))) {
+                result.add(s);
+                if (limit > 0 && result.size() >= limit) {
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 重置学生登录密码为默认密码（学生忘记密码时由宿管科代为重置）。
+     *
+     * @throws BusinessException 未选择学生 / 该学生没有绑定登录账号
+     */
+    public void resetStudentPassword(Student student) {
+        if (student == null) {
+            throw new BusinessException("请先选择一名学生");
+        }
+        Account account = dc().findAccountByPersonId(student.getId());
+        if (account == null) {
+            throw new BusinessException("该学生（" + student.getId() + "）没有绑定的登录账号，无法重置密码");
+        }
+        account.setPassword(DEFAULT_PASSWORD);
         dc().saveAll();
     }
 }

@@ -19,6 +19,9 @@ public class Account {
     /** 角色键，见 {@link RoleKey} */
     private String roleKey;
 
+    /** 自定义头像文件名（相对 data/avatars/）；空串表示未更换，界面用默认校徽 */
+    private String avatar = "";
+
     public Account() {
     }
 
@@ -61,11 +64,20 @@ public class Account {
         this.roleKey = roleKey;
     }
 
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar == null ? "" : avatar;
+    }
+
     public String toLine() {
         return TextUtil.escape(username) + "|"
                 + TextUtil.escape(password) + "|"
                 + TextUtil.escape(personId) + "|"
-                + TextUtil.escape(roleKey);
+                + TextUtil.escape(roleKey) + "|"
+                + TextUtil.escape(avatar);
     }
 
     public static Account fromLine(String line) {
@@ -75,6 +87,7 @@ public class Account {
         a.password = f[1];
         a.personId = f[2];
         a.roleKey = f[3];
+        a.avatar = f.length > 4 ? f[4] : ""; // 兼容早期只有 4 列的账号行
         return a;
     }
 }

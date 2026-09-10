@@ -1,2 +1,5 @@
-# 贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId
+# 贵重物品出入表：id|studentId|itemName|direction|recordTime|handlerId|confirmStatus|confirmTime|studentRemark|reportStatus|reporterId|reportTime（confirmStatus：PENDING/INTACT/LOST；reportStatus：NONE/STUDENT_REPORTED/ESCALATED/PUBLISHED）
 # 字段以 | 分隔，一行一条记录；# 开头为注释行。
+VA0001|24112322|笔记本电脑|OUT|2026-09-11 03:51:32|LD001|LOST|2026-09-11 03:52:59|图书馆里被偷了|PUBLISHED|LD001|2026-09-11 03:55:35
+VA0002|24112322|手机|IN|2026-09-11 05:07:14|LD001|PENDING|||NONE||
+VA0003|24112322|手机|OUT|2026-09-11 05:09:28|LD001|PENDING|||NONE||

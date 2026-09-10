@@ -3,12 +3,17 @@ package com.nchu.dorm.model.application;
 import com.nchu.dorm.util.TextUtil;
 
 /**
- * 维修申请单。学生提交，宿管科（或宿舍管理人员）处理。
- * 初版仅建立数据结构，处理闭环在后续迭代实现。
+ * 维修申请单。学生提交后进入<b>分管宿舍管理人员</b>的接收队列，由宿管核实并统一上报宿管科，
+ * 再由宿管科受理 / 办结。状态流转：
+ * {@link #STATUS_SUBMITTED}（待宿管上报）→ {@link #STATUS_PENDING}（待处理）→
+ * {@link #STATUS_PROCESSING}（处理中）→ {@link #STATUS_DONE}（已完成）。
  */
 public class RepairTicket {
 
-    /** 状态：待处理 */
+    /** 状态：待宿管上报（学生提交后的初始状态，尚未到达宿管科） */
+    public static final String STATUS_SUBMITTED = "SUBMITTED";
+
+    /** 状态：待处理（宿管已上报，宿管科待受理） */
     public static final String STATUS_PENDING = "PENDING";
 
     /** 状态：处理中 */
@@ -34,6 +39,12 @@ public class RepairTicket {
 
     /** 提交时间 */
     private String createTime;
+
+    /** 上报宿管科的宿舍管理人员工号（未上报为空） */
+    private String escalatorId;
+
+    /** 上报宿管科的时间 */
+    private String escalateTime;
 
     /** 处理人工号 */
     private String handlerId;
@@ -102,6 +113,22 @@ public class RepairTicket {
         this.createTime = createTime;
     }
 
+    public String getEscalatorId() {
+        return escalatorId;
+    }
+
+    public void setEscalatorId(String escalatorId) {
+        this.escalatorId = escalatorId;
+    }
+
+    public String getEscalateTime() {
+        return escalateTime;
+    }
+
+    public void setEscalateTime(String escalateTime) {
+        this.escalateTime = escalateTime;
+    }
+
     public String getHandlerId() {
         return handlerId;
     }
@@ -118,8 +145,16 @@ public class RepairTicket {
         this.handleTime = handleTime;
     }
 
+    /** 是否尚未上报宿管科（仍在分管宿管的接收队列中）。 */
+    public boolean isSubmitted() {
+        return STATUS_SUBMITTED.equals(status);
+    }
+
     /** 状态中文名 */
     public String getStatusName() {
+        if (STATUS_SUBMITTED.equals(status)) {
+            return "待宿管上报";
+        }
         if (STATUS_PROCESSING.equals(status)) {
             return "处理中";
         }
@@ -137,7 +172,9 @@ public class RepairTicket {
                 + TextUtil.escape(status) + "|"
                 + TextUtil.escape(createTime) + "|"
                 + TextUtil.escape(handlerId) + "|"
-                + TextUtil.escape(handleTime);
+                + TextUtil.escape(handleTime) + "|"
+                + TextUtil.escape(escalatorId) + "|"
+                + TextUtil.escape(escalateTime);
     }
 
     public static RepairTicket fromLine(String line) {
@@ -150,7 +187,16 @@ public class RepairTicket {
         t.status = f[4];
         t.createTime = f[5];
         t.handlerId = f[6];
-        t.handleTime = f[7];
+        if (f.length > 7) {
+            t.handleTime = f[7];
+        }
+        // 上报两列为本轮新增：旧数据行没有这两段，缺省即「已上报」（旧单曾直达宿管科）
+        if (f.length > 8) {
+            t.escalatorId = f[8];
+        }
+        if (f.length > 9) {
+            t.escalateTime = f[9];
+        }
         return t;
     }
 }

@@ -1,2 +1,5 @@
-# 卫生检查表：id|roomKey|date|score|inspectorId|comment
+# 卫生检查表：id|roomKey|date|score|inspectorId|comment|studentId|studentStatus|studentRemark|feedbackTime|reviewerId|reviewTime|reviewComment（studentStatus：空/ACKNOWLEDGED/DISPUTED/REVIEWED_KEPT/REVIEWED_ADJUSTED）
 # 字段以 | 分隔，一行一条记录；# 开头为注释行。
+HG0001|20A栋-1543|2026-09-11|85.0|LD001|床铺未整理|24112322|REVIEWED_ADJUSTED|分低了|2026-09-11 03:52:33|LD001|2026-09-11 04:13:53|评分有误，已更正为 85 分
+HG0002|20A栋-1543|2026-09-12|92.0|LD001|整体整洁|24112322|REVIEWED_KEPT|地板没扫干净|2026-09-11 04:13:53|LD001|2026-09-11 04:13:53|经核实，维持原记录
+HG0003|20A栋-1543|2026-09-11|100.0|LD001|宿舍干净|24112322|ACKNOWLEDGED||2026-09-11 05:42:58|||

@@ -1,3 +1,4 @@
 # 宿舍申请表：id|studentId|type|targetBuilding|targetRoom|reason|status|createTime|reviewerId|reviewTime|reviewComment|originBuilding|originRoom|targetClass|originClass|step1ReviewerId|step1ReviewTime|step1ReviewComment
 # 字段以 | 分隔，一行一条记录；# 开头为注释行。
 AP0001|24112322|MAJOR_TRANSFER|20A栋|1543|转专业|APPROVED|2026-09-09 03:22:29|25201|2026-09-09 03:23:25||11A栋|445|252016|241123|24112|2026-09-09 03:23:08|
+AP0002|24111223|MAJOR_TRANSFER|20A栋|1543|转专业|APPROVED|2026-09-11 03:17:19|25201|2026-09-11 03:18:16||11A栋|405|252015|241112|24111|2026-09-11 03:17:59|
